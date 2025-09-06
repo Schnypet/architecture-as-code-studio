@@ -28,7 +28,7 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
   ],
   template: `
     <div class="diagram-viewer">
-      <p-tabs [(value)]="activeTab" (onChange)="onTabChange($event)">
+      <p-tabs [(value)]="activeTab" (valueChange)="onTabChange($event)">
         <p-tablist>
           <p-tab value="diagram">
             <span>Rendered Diagram</span>
@@ -58,8 +58,8 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
                 </p>
               </div>
             } @else if (renderError()) {
-              <p-message 
-                severity="warn" 
+              <p-message
+                severity="warn"
                 [text]="renderError()"
                 class="mb-3">
               </p-message>
@@ -82,40 +82,40 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
             } @else if (renderedDiagram() && renderedDiagram()!.success) {
               <div class="rendered-diagram">
                 @if (renderedDiagram()!.format === 'html') {
-                  <iframe 
+                  <iframe
                     [src]="sanitizedUrl()"
                     class="diagram-frame"
                     frameborder="0">
                   </iframe>
                 } @else {
-                  <img 
-                    [src]="renderedDiagram()!.url" 
+                  <img
+                    [src]="renderedDiagram()!.url"
                     [alt]="'Architecture Diagram'"
                     class="diagram-image"
                     (error)="onImageError($event)"
                     (load)="onImageLoad()">
                 }
-                
+
                 <div class="diagram-actions mt-3">
-                  <p-button 
-                    label="Download SVG" 
-                    icon="pi pi-download" 
+                  <p-button
+                    label="Download SVG"
+                    icon="pi pi-download"
                     severity="secondary"
                     size="small"
                     (click)="downloadDiagram('svg')"
                     class="mr-2">
                   </p-button>
-                  <p-button 
-                    label="Download PNG" 
-                    icon="pi pi-download" 
+                  <p-button
+                    label="Download PNG"
+                    icon="pi pi-download"
                     severity="secondary"
                     size="small"
                     (click)="downloadDiagram('png')"
                     class="mr-2">
                   </p-button>
-                  <p-button 
-                    label="Open in New Tab" 
-                    icon="pi pi-external-link" 
+                  <p-button
+                    label="Open in New Tab"
+                    icon="pi pi-external-link"
                     severity="secondary"
                     size="small"
                     (click)="openInNewTab()">
@@ -125,24 +125,24 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
             }
           </div>
           </p-tabpanel>
-          
+
           <p-tabpanel value="structurizr">
           <div class="structurizr-container">
             <h5>Structurizr DSL Code:</h5>
             <pre class="structurizr-code">{{ structurizrDSL() }}</pre>
-            
+
             <div class="dsl-actions mt-3">
-              <p-button 
-                label="Copy DSL" 
-                icon="pi pi-copy" 
+              <p-button
+                label="Copy DSL"
+                icon="pi pi-copy"
                 severity="secondary"
                 size="small"
                 (click)="copyDSL()"
                 class="mr-2">
               </p-button>
-              <p-button 
-                label="Export Workspace" 
-                icon="pi pi-upload" 
+              <p-button
+                label="Export Workspace"
+                icon="pi pi-upload"
                 severity="secondary"
                 size="small"
                 (click)="exportWorkspace()"
@@ -151,24 +151,24 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
             </div>
           </div>
           </p-tabpanel>
-          
+
           <p-tabpanel value="plantuml">
           <div class="plantuml-container">
             <h5>PlantUML C4 Code:</h5>
             <pre class="plantuml-code">{{ _plantUMLCode() }}</pre>
-            
+
             <div class="source-actions mt-3">
-              <p-button 
-                label="Copy Code" 
-                icon="pi pi-copy" 
+              <p-button
+                label="Copy Code"
+                icon="pi pi-copy"
                 severity="secondary"
                 size="small"
                 (click)="copyPlantUML()"
                 class="mr-2">
               </p-button>
-              <p-button 
-                label="Re-render" 
-                icon="pi pi-refresh" 
+              <p-button
+                label="Re-render"
+                icon="pi pi-refresh"
                 severity="secondary"
                 size="small"
                 (click)="rerender()"
@@ -177,35 +177,19 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
             </div>
           </div>
           </p-tabpanel>
-          
+
           <p-tabpanel value="graph">
           <div class="graph-container">
             <h5>Interactive Graph View:</h5>
             @if (graphData()) {
               <div id="graph-network" class="network-container" style="width: 100%; height: 500px;"></div>
-              <div class="graph-actions mt-3">
-                <p-button 
-                  label="Reset View" 
-                  icon="pi pi-refresh" 
-                  severity="secondary"
-                  size="small"
-                  (click)="resetGraphView()"
-                  class="mr-2">
-                </p-button>
-                <p-button 
-                  label="Export Graph" 
-                  icon="pi pi-download" 
-                  severity="secondary"
-                  size="small"
-                  (click)="exportGraph()">
-                </p-button>
-              </div>
+
             } @else {
               <p-message severity="info" text="No architecture context available for graph view"></p-message>
             }
           </div>
           </p-tabpanel>
-          
+
           <p-tabpanel value="structurizr-ui">
           <div class="structurizr-ui-container">
             <h5>Structurizr Workspace:</h5>
@@ -213,7 +197,7 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
               <div class="workspace-info">
                 <h6>{{ structurizrWorkspace().name }}</h6>
                 <p>{{ structurizrWorkspace().description }}</p>
-                
+
                 <div class="workspace-stats mt-3">
                   <div class="stat-item">
                     <strong>People:</strong> {{ structurizrWorkspace().model.people.length }}
@@ -225,11 +209,11 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
                     <strong>Relationships:</strong> {{ structurizrWorkspace().model.relationships.length }}
                   </div>
                 </div>
-                
+
                 <!-- C4 Diagram Previews -->
                 <div class="diagram-previews mt-4">
                   <h6>Available C4 Diagrams:</h6>
-                  
+
                   @if (structurizrWorkspace().views.systemContextViews.length > 0) {
                     <div class="diagram-section">
                       <h6><i class="pi pi-sitemap"></i> System Context Diagrams</h6>
@@ -245,7 +229,7 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
                       }
                     </div>
                   }
-                  
+
                   @if (structurizrWorkspace().views.containerViews.length > 0) {
                     <div class="diagram-section">
                       <h6><i class="pi pi-box"></i> Container Diagrams</h6>
@@ -261,44 +245,7 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
                       }
                     </div>
                   }
-                  
-                  <div class="integration-info mt-3">
-                    <p-message severity="info">
-                      <div>
-                        <strong>Structurizr Integration Ready:</strong><br>
-                        • Export DSL to create diagrams in Structurizr<br>
-                        • Supports PlantUML, Mermaid, and WebSequenceDiagrams<br>
-                        • Full C4 model compliance with automatic layouts
-                      </div>
-                    </p-message>
-                  </div>
                 </div>
-              </div>
-              
-              <div class="structurizr-actions mt-3">
-                <p-button 
-                  label="Export Workspace JSON" 
-                  icon="pi pi-download" 
-                  severity="secondary"
-                  size="small"
-                  (click)="exportStructurizrWorkspace()"
-                  class="mr-2">
-                </p-button>
-                <p-button 
-                  label="Open in Structurizr" 
-                  icon="pi pi-external-link" 
-                  severity="primary"
-                  size="small"
-                  (click)="openStructurizrUI()"
-                  class="mr-2">
-                </p-button>
-                <p-button 
-                  label="Generate PlantUML" 
-                  icon="pi pi-code" 
-                  severity="secondary"
-                  size="small"
-                  (click)="generateFromStructurizr('plantuml')">
-                </p-button>
               </div>
             } @else {
               <p-message severity="info" text="No architecture context available for Structurizr workspace"></p-message>
@@ -527,7 +474,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   @Input() plantUMLCode: string = '';
   @Input() architectureName: string = 'Architecture';
   @Input() architectureContext?: StructurizrContext;
-  
+
   // Public signals for template access
   _plantUMLCode = signal<string>('');
   _architectureName = signal<string>('Architecture');
@@ -551,15 +498,15 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   ngOnInit() {
     this._plantUMLCode.set(this.plantUMLCode);
     this._architectureName.set(this.architectureName);
-    
+
     if (this._plantUMLCode()) {
       this.renderDiagram();
       this.generateStructurizrDSL();
     }
 
     if (this.architectureContext) {
-      this.generateGraphData();
       this.generateStructurizrWorkspace();
+      this.generateGraphData();
     }
   }
 
@@ -571,14 +518,14 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
         this.generateStructurizrDSL();
       }
     }
-    
+
     if (changes['architectureName']) {
       this._architectureName.set(this.architectureName);
     }
 
     if (changes['architectureContext'] && this.architectureContext) {
-      this.generateGraphData();
       this.generateStructurizrWorkspace();
+      this.generateGraphData();
     }
   }
 
@@ -630,7 +577,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   }
 
   onImageLoad() {
-    console.log('Diagram image loaded successfully');
+    // Diagram image loaded successfully
   }
 
   rerender() {
@@ -668,7 +615,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   copyPlantUML() {
     if (navigator.clipboard && this._plantUMLCode()) {
       navigator.clipboard.writeText(this._plantUMLCode()).then(() => {
-        console.log('PlantUML code copied to clipboard');
+        // PlantUML code copied to clipboard
       }).catch((err) => {
         console.error('Failed to copy PlantUML code:', err);
       });
@@ -678,7 +625,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   copyDSL() {
     if (navigator.clipboard && this.structurizrDSL()) {
       navigator.clipboard.writeText(this.structurizrDSL()).then(() => {
-        console.log('Structurizr DSL copied to clipboard');
+        // Structurizr DSL copied to clipboard
       }).catch((err) => {
         console.error('Failed to copy DSL:', err);
       });
@@ -695,8 +642,8 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
       this._plantUMLCode()
     ).subscribe({
       next: (workspace) => {
-        console.log('Structurizr workspace created:', workspace);
-        
+        // Structurizr workspace created successfully
+
         // Download the DSL file
         const dslBlob = new Blob([this.structurizrDSL()], { type: 'text/plain' });
         const url = window.URL.createObjectURL(dslBlob);
@@ -707,7 +654,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        
+
         this.isExporting.set(false);
       },
       error: (error) => {
@@ -721,15 +668,15 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     if (!this.architectureContext) {
       return;
     }
-    
+
     try {
       const graphData = this.advancedRenderer.generateGraphData(this.architectureContext);
-      
+
       if (graphData && graphData.nodes && graphData.edges) {
         this.graphData.set(graphData);
-        
         // Initialize graph visualization if the graph tab is active
         if (this.activeTab() === 'graph') {
+          // Graph data tab loaded
           setTimeout(() => this.initializeGraph(), 200);
         }
       }
@@ -740,7 +687,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
 
   private generateStructurizrWorkspace() {
     if (!this.architectureContext) return;
-    
+
     this.advancedRenderer.generateStructurizrWorkspace(this.architectureContext).subscribe({
       next: (workspace) => {
         this.structurizrWorkspace.set(workspace);
@@ -758,7 +705,6 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     if (!container || !this.graphData()) {
       return;
     }
-
     // Clear any existing network instance
     if (this.networkInstance) {
       this.networkInstance.destroy();
@@ -770,13 +716,13 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
       import('vis-network/standalone').then(({ Network }) => {
         const options = this.advancedRenderer.getNetworkOptions();
         const data = this.graphData();
-        
+
         if (!data || !data.nodes || !data.edges) {
           return;
         }
-        
+
         this.networkInstance = new Network(container, data, options);
-        
+
         // Add event listeners
         this.networkInstance.on('click', (params: any) => {
           if (params.nodes.length > 0) {
@@ -784,7 +730,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
             // Find and display node details
             const nodeData = data.nodes.get(nodeId);
             if (nodeData) {
-              console.log('Node clicked:', nodeData);
+              // Node clicked - could show details in future
             }
           }
         });
@@ -793,7 +739,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
         this.networkInstance.once('stabilizationIterationsDone', () => {
           this.networkInstance.fit();
         });
-        
+
       }).catch(error => {
         console.error('Error loading vis-network:', error);
       });
@@ -802,37 +748,15 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     }
   }
 
-  resetGraphView() {
-    if (this.networkInstance) {
-      this.networkInstance.fit();
-    }
-  }
 
-  exportGraph() {
-    if (this.networkInstance) {
-      try {
-        const canvas = this.networkInstance.canvas.frame.canvas;
-        const dataURL = canvas.toDataURL('image/png');
-        
-        const link = document.createElement('a');
-        link.download = `${this._architectureName()}-graph.png`;
-        link.href = dataURL;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (error) {
-        console.error('Error exporting graph:', error);
-      }
-    }
-  }
 
   exportStructurizrWorkspace() {
     if (!this.structurizrWorkspace()) return;
-    
+
     const workspace = this.structurizrWorkspace();
     const dataStr = JSON.stringify(workspace, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
+
     const url = window.URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
@@ -843,72 +767,18 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     window.URL.revokeObjectURL(url);
   }
 
-  openStructurizrUI() {
-    // Generate Structurizr DSL and open in new window with instructions
-    const dsl = this.advancedRenderer.generateStructurizrDSL(this.architectureContext!);
-    const instructionsWindow = window.open('', '_blank');
-    
-    if (instructionsWindow) {
-      instructionsWindow.document.write(`
-        <html>
-          <head>
-            <title>Structurizr DSL - ${this._architectureName()}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .dsl-code { 
-                background: #f5f5f5; 
-                padding: 15px; 
-                border-radius: 5px; 
-                white-space: pre-wrap; 
-                font-family: monospace; 
-                border: 1px solid #ddd;
-                max-height: 400px;
-                overflow-y: auto;
-              }
-              .instructions { 
-                background: #e7f3ff; 
-                padding: 15px; 
-                border-radius: 5px; 
-                margin-bottom: 20px;
-                border-left: 4px solid #2196f3;
-              }
-            </style>
-          </head>
-          <body>
-            <h2>${this._architectureName()} - Structurizr DSL</h2>
-            <div class="instructions">
-              <strong>How to use this DSL:</strong><br>
-              1. Copy the DSL code below<br>
-              2. Visit <a href="https://structurizr.com" target="_blank">structurizr.com</a><br>
-              3. Create a new workspace or open an existing one<br>
-              4. Paste the DSL code and render your diagrams
-            </div>
-            <h3>DSL Code:</h3>
-            <div class="dsl-code">${dsl}</div>
-            <button onclick="navigator.clipboard.writeText(\`${dsl.replace(/`/g, '\\`')}\`); alert('DSL copied to clipboard!')">
-              Copy DSL to Clipboard
-            </button>
-          </body>
-        </html>
-      `);
-    }
-  }
+
 
   onTabChange(event: any) {
-    const selectedValue = event.value;
-    this.activeTab.set(selectedValue);
-    
-    // Initialize graph when Graph View tab is selected
-    if (selectedValue === 'graph' && this.graphData() && !this.networkInstance) {
-      setTimeout(() => this.initializeGraph(), 100);
-    }
+    this.activeTab.set(event);
+    this.generateGraphData();
   }
 
   generateFromStructurizr(format: 'plantuml' | 'mermaid' | 'websequence') {
     if (!this.architectureContext) return;
-    
+
     const dsl = this.advancedRenderer.generateStructurizrDSL(this.architectureContext);
-    
+
     switch (format) {
       case 'plantuml':
         // Convert Structurizr DSL to PlantUML (simplified)
@@ -935,15 +805,15 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     let plantuml = '@startuml\n';
     plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml\n';
     plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n\n';
-    
+
     // Extract people, systems and relationships from DSL
     const lines = dsl.split('\n');
     const elements: {id: string, type: string, name: string, description?: string}[] = [];
     const relationships: {source: string, target: string, label: string}[] = [];
-    
+
     lines.forEach(line => {
       const trimmed = line.trim();
-      
+
       // Match person definitions
       const personMatch = trimmed.match(/(\w+) = person "([^"]+)"(?: "([^"]+)")?/);
       if (personMatch) {
@@ -954,7 +824,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
           description: personMatch[3]
         });
       }
-      
+
       // Match system definitions
       const systemMatch = trimmed.match(/(\w+) = softwareSystem "([^"]+)"(?: "([^"]+)")?/);
       if (systemMatch) {
@@ -965,7 +835,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
           description: systemMatch[3]
         });
       }
-      
+
       // Match relationships
       const relMatch = trimmed.match(/(\w+) -> (\w+) "([^"]+)"/);
       if (relMatch) {
@@ -976,7 +846,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
         });
       }
     });
-    
+
     // Generate PlantUML elements
     elements.forEach(element => {
       switch (element.type) {
@@ -988,13 +858,13 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
           break;
       }
     });
-    
+
     // Generate PlantUML relationships
     plantuml += '\n';
     relationships.forEach(rel => {
       plantuml += `Rel(${rel.source}, ${rel.target}, "${rel.label}")\n`;
     });
-    
+
     plantuml += '\n@enduml';
     return plantuml;
   }

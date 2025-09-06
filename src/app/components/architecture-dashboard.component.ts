@@ -66,13 +66,6 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
             [disabled]="!isConnected()">
           </p-button>
 
-          <p-button
-            label="Debug API"
-            icon="pi pi-bug"
-            (click)="debugApi()"
-            severity="info"
-            size="small">
-          </p-button>
         </div>
 
         <div class="mt-3">
@@ -398,10 +391,6 @@ export class ArchitectureDashboardComponent implements OnInit {
         const analysis = this.mappingService.analyzeArchitectureData(completeArch);
         this.analysisData.set(analysis);
         this.selectedArchitecture.set(completeArch);
-
-        // Generate architecture context for advanced visualizations
-        const context = this.mappingService.mapArchitectureToStructurizr(completeArch);
-        this.architectureContext.set(context);
       }
     } catch (error) {
       console.error('Error analyzing architecture:', error);
@@ -427,27 +416,6 @@ export class ArchitectureDashboardComponent implements OnInit {
       console.error('Error generating diagram:', error);
     } finally {
       this.isGeneratingDiagram.set(false);
-    }
-  }
-
-  async debugApi() {
-    console.log('=== API Debug Information ===');
-    console.log('Current architectures signal value:', this._architectures());
-    console.log('Is connected:', this.isConnected());
-
-    try {
-      console.log('Testing raw HTTP connection...');
-      const rawResult = await this.architectureService.testRawConnection().toPromise();
-      console.log('Raw HTTP result:', rawResult);
-
-      console.log('Testing generated API client...');
-      const clientResult = await this.architectureService.getAllArchitectures().toPromise();
-      console.log('Generated client result:', clientResult);
-      console.log('Result type:', typeof clientResult);
-      console.log('Is array:', Array.isArray(clientResult));
-
-    } catch (error) {
-      console.error('Debug API test failed:', error);
     }
   }
 }

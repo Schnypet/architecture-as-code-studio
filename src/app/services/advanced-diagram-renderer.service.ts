@@ -63,7 +63,6 @@ export class AdvancedDiagramRendererService {
 
     // Add people as nodes
     context.people.forEach(person => {
-      console.log('Adding person node:', person.name);
       nodes.add({
         id: person.id,
         label: person.name,
@@ -80,7 +79,6 @@ export class AdvancedDiagramRendererService {
 
     // Add systems as nodes
     context.systems.forEach(system => {
-      console.log('Adding system node:', system.name);
       nodes.add({
         id: system.id,
         label: system.name,
@@ -243,10 +241,9 @@ export class AdvancedDiagramRendererService {
       dsl += '\n';
     }
 
-    console.log("Add software systems with containers")
     // Add software systems with containers
     context.systems.forEach((system, systemIndex) => {
-      console.log('Processing system:', system);
+      // Processing system
       const systemId = this.toDslId(system.id);
       dsl += `        ${systemId} = softwareSystem "${system.name}"`;
       if (system.description) {
@@ -254,13 +251,13 @@ export class AdvancedDiagramRendererService {
       }
       dsl += ' {\n';
 
-      // Add containers for this system 
+      // Add containers for this system
       // For demo purposes, distribute containers across systems
       const containersPerSystem = Math.ceil(context.containers.length / context.systems.length);
       const startIndex = systemIndex * containersPerSystem;
       const systemContainers = context.containers.slice(startIndex, startIndex + containersPerSystem);
-      
-      console.log(`System ${system.name} gets containers:`, systemContainers.map(c => c.name));
+
+      // System gets containers for distribution
 
       systemContainers.forEach(container => {
         const containerId = this.toDslId(container.id);
@@ -373,68 +370,33 @@ export class AdvancedDiagramRendererService {
    */
   getNetworkOptions(): any {
     return {
-      nodes: {
-        font: {
-          size: 14,
-          color: '#ffffff',
-          face: 'arial'
-        },
-        borderWidth: 2,
-        shadow: true,
-        margin: 10,
-        widthConstraint: {
-          minimum: 120,
-          maximum: 200
-        }
-      },
-      edges: {
-        font: {
-          size: 12,
-          align: 'middle'
-        },
-        arrows: {
-          to: {
-            enabled: true,
-            scaleFactor: 1.2
-          }
-        },
-        smooth: {
-          enabled: true,
-          type: 'dynamic',
-          roundness: 0.5
-        },
-        width: 2
-      },
       physics: {
         enabled: true,
-        hierarchicalRepulsion: {
-          centralGravity: 0.0,
-          springLength: 100,
-          springConstant: 0.01,
-          nodeDistance: 120,
-          damping: 0.09
-        },
-        maxVelocity: 50,
-        minVelocity: 0.1,
-        solver: 'hierarchicalRepulsion',
-        stabilization: {
-          enabled: true,
-          iterations: 1000,
-          updateInterval: 25
-        }
-      },
-      layout: {
-        hierarchical: {
-          enabled: true,
-          direction: 'UD',
-          sortMethod: 'directed',
-          shakeTowards: 'leaves'
+        solver: "forceAtlas2Based",
+        forceAtlas2Based: {
+          gravitationalConstant: -1000,
+          centralGravity: 0.01,
+          springLength: 200,
+          springConstant: 0.05
         }
       },
       interaction: {
-        dragNodes: true,
-        dragView: true,
-        zoomView: true
+        hover: true,
+        navigationButtons: true,
+        selectable: true,
+        multiselect: true
+      },
+      layout: {
+        improvedLayout: true
+      },
+      nodes: {
+        shape: "box",
+        font: { size: 14 },
+        margin: 10
+      },
+      edges: {
+        arrows: { to: { enabled: true, scaleFactor: 0.7 } },
+        smooth: { type: "continuous" }
       }
     };
   }

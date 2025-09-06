@@ -41,8 +41,6 @@
     "primeicons": "^7.0.0",
     "primeng": "^20.1.1",
     "rxjs": "~7.8.0",
-    "structurizr-parser": "^0.3.0",
-    "structurizr-typescript": "^1.0.15",
     "tslib": "^2.3.0",
     "vis-network": "^10.0.1",
     "zone.js": "~0.15.0"
