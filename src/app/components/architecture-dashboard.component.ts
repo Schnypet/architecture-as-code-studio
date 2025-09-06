@@ -31,208 +31,615 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
     DiagramViewerComponent
   ],
   template: `
-    <div class="architecture-dashboard">
-      <p-card class="mb-3">
-        <ng-template pTemplate="header">
-          <div class="flex align-items-center gap-2">
-            <i class="pi pi-sitemap" style="font-size: 1.5rem;"></i>
-            <span>Architecture as Code Studio</span>
+    <div class="dashboard-container">
+      <!-- Compact Header Toolbar -->
+      <div class="header-toolbar">
+        <div class="title-section">
+          <i class="pi pi-objects-column"></i>
+          <h1>Architecture as Code Studio</h1>
+          <div class="status-badges">
+            <span class="status-badge" 
+                  [class.connected]="isConnected()" 
+                  [class.disconnected]="!isConnected()">
+              <i class="pi" [class.pi-link]="isConnected()" [class.pi-times-circle]="!isConnected()"></i>
+              {{ isConnected() ? 'Connected' : 'Disconnected' }}
+            </span>
+            <span class="status-badge"
+                  [class.available]="plantUMLServerAvailable()" 
+                  [class.unavailable]="!plantUMLServerAvailable()">
+              <i class="pi" [class.pi-palette]="plantUMLServerAvailable()" [class.pi-exclamation-triangle]="!plantUMLServerAvailable()"></i>
+              PlantUML {{ plantUMLServerAvailable() ? 'Ready' : 'Offline' }}
+            </span>
           </div>
-        </ng-template>
-        <p class="text-lg">Welcome to the Architecture Studio - analyze and visualize your architecture models</p>
-
-        <div class="flex gap-2 mt-3">
+        </div>
+        
+        <div class="action-section">
           <p-button
-            label="Test Connection"
-            icon="pi pi-wifi"
+            icon="pi pi-bolt"
+            size="small"
+            severity="secondary"
             (click)="testConnection()"
             [loading]="isTestingConnection()"
-            severity="secondary">
+            [title]="'Test Connection'">
           </p-button>
-
           <p-button
-            label="Load Architectures"
-            icon="pi pi-download"
+            icon="pi pi-cloud-download"
+            size="small"
+            severity="secondary"
             (click)="loadArchitectures()"
             [loading]="isLoading()"
-            [disabled]="!isConnected()">
+            [disabled]="!isConnected()"
+            [title]="'Load Architectures'">
           </p-button>
-
           <p-button
-            label="Reload Models"
-            icon="pi pi-refresh"
+            icon="pi pi-sync"
+            size="small"
+            severity="secondary"
             (click)="reloadModels()"
             [loading]="isReloading()"
-            [disabled]="!isConnected()">
+            [disabled]="!isConnected()"
+            [title]="'Reload Models'">
           </p-button>
-
-        </div>
-
-        <div class="mt-3">
-          <p-message
-            *ngIf="connectionMessage()"
-            [severity]="isConnected() ? 'success' : 'error'"
-            [text]="connectionMessage()">
-          </p-message>
-
-          <p-message
-            *ngIf="!plantUMLServerAvailable()"
-            severity="info"
-            class="mt-2">
-            <div>
-              <strong>PlantUML Server Not Available</strong><br>
-              To render visual diagrams, start a PlantUML server:<br>
-              <code>docker run -d -p 8080:8080 plantuml/plantuml-server:jetty</code>
-            </div>
-          </p-message>
-
-          <p-message
-            *ngIf="plantUMLServerAvailable()"
-            severity="success"
-            class="mt-2">
-            <div>
-              <strong>PlantUML Server Available</strong><br>
-              Diagrams will render as visual images
-            </div>
-          </p-message>
-        </div>
-      </p-card>
-
-      <div class="grid">
-        <!-- Architecture List -->
-        <div class="col-12 lg:col-6">
-          <p-card>
-            <ng-template pTemplate="header">
-              <div class="flex align-items-center gap-2">
-                <i class="pi pi-list" style="font-size: 1.25rem;"></i>
-                <span>Available Architectures</span>
-              </div>
-            </ng-template>
-            <p-table
-              [value]="architectures()"
-              [loading]="isLoading()"
-              dataKey="uid"
-              class="p-datatable-sm">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Name</th>
-                  <th>Version</th>
-                  <th>Actions</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-arch>
-                <tr>
-                  <td>{{ arch.name }}</td>
-                  <td>{{ arch.version || 'N/A' }}</td>
-                  <td>
-                    <p-button
-                      icon="pi pi-eye"
-                      size="small"
-                      severity="secondary"
-                      (click)="selectArchitecture(arch)"
-                      [disabled]="isAnalyzing()">
-                    </p-button>
-                  </td>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="3" class="text-center">
-                    {{ isConnected() ? 'No architectures found' : 'Connect to server to load architectures' }}
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
-          </p-card>
-        </div>
-
-        <!-- Architecture Analysis -->
-        <div class="col-12 lg:col-6">
-          <p-card *ngIf="selectedArchitecture()">
-            <ng-template pTemplate="header">
-              <div class="flex align-items-center gap-2">
-                <i class="pi pi-chart-bar" style="font-size: 1.25rem;"></i>
-                <span>Architecture Analysis</span>
-              </div>
-            </ng-template>
-            <div class="mb-3">
-              <h4 class="mt-0">{{ selectedArchitecture()?.name }}</h4>
-              <p class="text-sm text-600">{{ selectedArchitecture()?.description }}</p>
-            </div>
-
-            <div class="analysis-grid" *ngIf="analysisData()">
-              <div class="analysis-section">
-                <h5>Business Layer</h5>
-                <ul class="list-none p-0">
-                  <li>Actors: <strong>{{ analysisData()?.businessLayer.actorCount }}</strong></li>
-                  <li>Domains: <strong>{{ analysisData()?.businessLayer.domainCount }}</strong></li>
-                  <li>Processes: <strong>{{ analysisData()?.businessLayer.processCount }}</strong></li>
-                  <li>Services: <strong>{{ analysisData()?.businessLayer.serviceCount }}</strong></li>
-                </ul>
-              </div>
-
-              <div class="analysis-section">
-                <h5>Application Layer</h5>
-                <ul class="list-none p-0">
-                  <li>Applications: <strong>{{ analysisData()?.applicationLayer.applicationCount }}</strong></li>
-                  <li>Components: <strong>{{ analysisData()?.applicationLayer.componentCount }}</strong></li>
-                  <li>Services: <strong>{{ analysisData()?.applicationLayer.serviceCount }}</strong></li>
-                  <li>Interfaces: <strong>{{ analysisData()?.applicationLayer.interfaceCount }}</strong></li>
-                </ul>
-              </div>
-
-              <div class="analysis-section">
-                <h5>Technology Layer</h5>
-                <ul class="list-none p-0">
-                  <li>Nodes: <strong>{{ analysisData()?.technologyLayer.nodeCount }}</strong></li>
-                  <li>Services: <strong>{{ analysisData()?.technologyLayer.serviceCount }}</strong></li>
-                  <li>Artifacts: <strong>{{ analysisData()?.technologyLayer.artifactCount }}</strong></li>
-                </ul>
-              </div>
-            </div>
-
-            <div class="mt-3">
-              <p-button
-                label="Generate C4 Diagram"
-                icon="pi pi-image"
-                (click)="generateDiagram()"
-                [loading]="isGeneratingDiagram()"
-                [disabled]="!selectedArchitecture()">
-              </p-button>
-            </div>
-          </p-card>
         </div>
       </div>
 
-      <!-- C4 Diagram Visualization -->
-      <div class="col-12" *ngIf="generatedDiagram()">
-        <p-card>
-          <ng-template pTemplate="header">
-            <div class="flex align-items-center gap-2">
-              <i class="pi pi-image" style="font-size: 1.25rem;"></i>
-              <span>C4 System Context Diagram</span>
+      <div class="main-layout">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+          <!-- Architecture List -->
+          <div class="sidebar-section">
+            <div class="section-header">
+              <i class="pi pi-building"></i>
+              <h3>Architectures</h3>
+              <span class="count">{{ architectures().length }}</span>
             </div>
-          </ng-template>
-
-          <div class="mb-3">
-            <p class="text-600">
-              <strong>Elements found:</strong>
-              <span *ngIf="diagramStats()?.peopleCount"> People: {{ diagramStats()?.peopleCount }}</span>
-              <span *ngIf="diagramStats()?.systemsCount"> • Systems: {{ diagramStats()?.systemsCount }}</span>
-              <span *ngIf="diagramStats()?.containersCount"> • Containers: {{ diagramStats()?.containersCount }}</span>
-            </p>
+            
+            <div class="architecture-list">
+              @if (isLoading()) {
+                <div class="loading-placeholder">
+                  <i class="pi pi-spin pi-spinner"></i>
+                  Loading architectures...
+                </div>
+              } @else if (architectures().length === 0) {
+                <div class="empty-placeholder">
+                  <i class="pi pi-folder-open"></i>
+                  <p>{{ isConnected() ? 'No architectures found' : 'Connect to server first' }}</p>
+                </div>
+              } @else {
+                @for (arch of architectures(); track arch.uid) {
+                  <div class="architecture-item" 
+                       [class.selected]="selectedArchitecture()?.uid === arch.uid"
+                       (click)="selectArchitecture(arch)">
+                    <div class="arch-info">
+                      <strong>{{ arch.name }}</strong>
+                      <span class="version">{{ arch.version || 'v1.0' }}</span>
+                    </div>
+                    <p-button
+                      icon="pi pi-search"
+                      size="small"
+                      severity="secondary"
+                      (click)="$event.stopPropagation(); selectArchitecture(arch)"
+                      [disabled]="isAnalyzing()">
+                    </p-button>
+                  </div>
+                }
+              }
+            </div>
           </div>
 
-          <app-diagram-viewer
-            [plantUMLCode]="generatedDiagram()"
-            [architectureName]="selectedArchitecture()?.name || 'Architecture'"
-            [architectureContext]="architectureContext()">
-          </app-diagram-viewer>
-        </p-card>
+          <!-- Architecture Analysis -->
+          @if (selectedArchitecture()) {
+            <div class="sidebar-section">
+              <div class="section-header">
+                <i class="pi pi-chart-pie"></i>
+                <h3>Analysis</h3>
+                @if (analysisData()) {
+                  <p-button
+                    icon="pi pi-diagram-tree"
+                    size="small"
+                    (click)="generateDiagram()"
+                    [loading]="isGeneratingDiagram()"
+                    [title]="'Generate Diagram'">
+                  </p-button>
+                }
+              </div>
+              
+              <div class="selected-arch">
+                <h4>{{ selectedArchitecture()!.name }}</h4>
+                @if (selectedArchitecture()!.description) {
+                  <p class="description">{{ selectedArchitecture()!.description }}</p>
+                }
+                
+                @if (analysisData()) {
+                  <div class="analysis-stats">
+                    <div class="stat-group">
+                      <h5>Business</h5>
+                      <div class="stats">
+                        <span>{{ analysisData()!.businessLayer.actorCount }} Actors</span>
+                        <span>{{ analysisData()!.businessLayer.serviceCount }} Services</span>
+                      </div>
+                    </div>
+                    
+                    <div class="stat-group">
+                      <h5>Application</h5>
+                      <div class="stats">
+                        <span>{{ analysisData()!.applicationLayer.applicationCount }} Apps</span>
+                        <span>{{ analysisData()!.applicationLayer.componentCount }} Components</span>
+                      </div>
+                    </div>
+                    
+                    <div class="stat-group">
+                      <h5>Technology</h5>
+                      <div class="stats">
+                        <span>{{ analysisData()!.technologyLayer.nodeCount }} Nodes</span>
+                        <span>{{ analysisData()!.technologyLayer.serviceCount }} Services</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+          @if (generatedDiagram()) {
+            <div class="diagram-section">
+              <div class="diagram-header">
+                <div class="diagram-info">
+                  <h2>{{ selectedArchitecture()?.name || 'Architecture' }} Diagram</h2>
+                  @if (diagramStats()) {
+                    <div class="element-stats">
+                      @if (diagramStats()!.peopleCount) {
+                        <span class="stat"><i class="pi pi-user"></i> {{ diagramStats()!.peopleCount }} People</span>
+                      }
+                      @if (diagramStats()!.systemsCount) {
+                        <span class="stat"><i class="pi pi-server"></i> {{ diagramStats()!.systemsCount }} Systems</span>
+                      }
+                      @if (diagramStats()!.containersCount) {
+                        <span class="stat"><i class="pi pi-objects-column"></i> {{ diagramStats()!.containersCount }} Containers</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+              
+              <div class="diagram-content">
+                <app-diagram-viewer
+                  [plantUMLCode]="generatedDiagram()"
+                  [architectureName]="selectedArchitecture()?.name || 'Architecture'"
+                  [architectureContext]="architectureContext()">
+                </app-diagram-viewer>
+              </div>
+            </div>
+          } @else {
+            <div class="welcome-screen">
+              <div class="welcome-content">
+                <i class="pi pi-palette"></i>
+                <h2>Architecture Visualization Studio</h2>
+                <p>Select an architecture from the sidebar to generate and visualize C4 diagrams</p>
+                
+                @if (connectionMessage()) {
+                  <div class="connection-status" 
+                       [class.success]="isConnected()" 
+                       [class.error]="!isConnected()">
+                    <i class="pi" [class.pi-check-circle]="isConnected()" [class.pi-exclamation-circle]="!isConnected()"></i>
+                    {{ connectionMessage() }}
+                  </div>
+                }
+                
+                <div class="quick-actions">
+                  @if (!isConnected()) {
+                    <p-button
+                      label="Test Connection"
+                      icon="pi pi-bolt"
+                      (click)="testConnection()"
+                      [loading]="isTestingConnection()">
+                    </p-button>
+                  } @else if (architectures().length === 0) {
+                    <p-button
+                      label="Load Architectures"
+                      icon="pi pi-cloud-download"
+                      (click)="loadArchitectures()"
+                      [loading]="isLoading()">
+                    </p-button>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
       </div>
     </div>
   `,
-  styles: []
+  styles: [`
+    .dashboard-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--p-surface-ground);
+    }
+
+    .header-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: var(--p-surface-0);
+      border-bottom: 1px solid var(--p-surface-border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+    }
+
+    .title-section {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .title-section i {
+      font-size: 1.5rem;
+      color: var(--p-primary-color);
+    }
+
+    .title-section h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--p-text-color);
+    }
+
+    .status-badges {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .status-badge.connected {
+      background: var(--p-green-50);
+      color: var(--p-green-700);
+    }
+
+    .status-badge.disconnected {
+      background: var(--p-red-50);
+      color: var(--p-red-700);
+    }
+
+    .status-badge.available {
+      background: var(--p-green-50);
+      color: var(--p-green-700);
+    }
+
+    .status-badge.unavailable {
+      background: var(--p-orange-50);
+      color: var(--p-orange-700);
+    }
+
+    .action-section {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 350px;
+      background: var(--p-surface-0);
+      border-right: 1px solid var(--p-surface-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--p-surface-border);
+    }
+
+    .sidebar-section:last-child {
+      border-bottom: none;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: var(--p-surface-100);
+      border-bottom: 1px solid var(--p-surface-border);
+    }
+
+    .section-header i {
+      color: var(--p-primary-color);
+    }
+
+    .section-header h3 {
+      margin: 0;
+      flex: 1;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--p-text-color);
+    }
+
+    .section-header .count {
+      background: var(--p-primary-color);
+      color: var(--p-primary-contrast-color);
+      padding: 0.125rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .architecture-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .architecture-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 0.25rem;
+    }
+
+    .architecture-item:hover {
+      background: var(--p-surface-100);
+    }
+
+    .architecture-item.selected {
+      background: var(--p-primary-50);
+      border-left: 3px solid var(--p-primary-color);
+    }
+
+    .arch-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .arch-info strong {
+      display: block;
+      color: var(--p-text-color);
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .arch-info .version {
+      color: var(--p-text-muted-color);
+      font-size: 0.75rem;
+    }
+
+    .loading-placeholder,
+    .empty-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      color: var(--p-text-muted-color);
+    }
+
+    .loading-placeholder i,
+    .empty-placeholder i {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      opacity: 0.5;
+    }
+
+    .selected-arch {
+      padding: 1rem;
+      overflow-y: auto;
+    }
+
+    .selected-arch h4 {
+      margin: 0 0 0.5rem 0;
+      color: var(--p-text-color);
+      font-size: 1rem;
+    }
+
+    .selected-arch .description {
+      margin: 0 0 1rem 0;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .analysis-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .stat-group h5 {
+      margin: 0 0 0.5rem 0;
+      color: var(--p-primary-color);
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .stat-group .stats {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .stat-group .stats span {
+      color: var(--p-text-color);
+      font-size: 0.75rem;
+      padding: 0.25rem 0;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .diagram-section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .diagram-header {
+      padding: 1rem;
+      background: var(--p-surface-0);
+      border-bottom: 1px solid var(--p-surface-border);
+    }
+
+    .diagram-info h2 {
+      margin: 0 0 0.5rem 0;
+      color: var(--p-text-color);
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .element-stats {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .element-stats .stat {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
+    }
+
+    .element-stats .stat i {
+      color: var(--p-primary-color);
+    }
+
+    .diagram-content {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .welcome-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: var(--p-surface-0);
+    }
+
+    .welcome-content {
+      text-align: center;
+      max-width: 500px;
+      padding: 2rem;
+    }
+
+    .welcome-content i {
+      font-size: 4rem;
+      color: var(--p-primary-color);
+      margin-bottom: 1rem;
+      opacity: 0.7;
+    }
+
+    .welcome-content h2 {
+      margin: 0 0 1rem 0;
+      color: var(--p-text-color);
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .welcome-content p {
+      margin: 0 0 2rem 0;
+      color: var(--p-text-muted-color);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+    }
+
+    .connection-status.success {
+      background: var(--p-green-50);
+      color: var(--p-green-700);
+    }
+
+    .connection-status.error {
+      background: var(--p-red-50);
+      color: var(--p-red-700);
+    }
+
+    .quick-actions {
+      display: flex;
+      justify-content: center;
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar {
+        width: 300px;
+      }
+      
+      .status-badges {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-toolbar {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+      }
+
+      .title-section h1 {
+        font-size: 1.25rem;
+      }
+
+      .main-layout {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        max-height: 40vh;
+        order: 2;
+      }
+
+      .main-content {
+        order: 1;
+      }
+    }
+  `]
 })
 export class ArchitectureDashboardComponent implements OnInit {
   // Signals for reactive state management

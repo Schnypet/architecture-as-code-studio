@@ -27,60 +27,104 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
     SkeletonModule
   ],
   template: `
-    <div class="diagram-viewer">
-      <p-tabs [(value)]="activeTab" (valueChange)="onTabChange($event)">
-        <p-tablist>
-          <p-tab value="diagram">
-            <span>Rendered Diagram</span>
-          </p-tab>
-          <p-tab value="structurizr">
-            <span>Structurizr DSL</span>
-          </p-tab>
-          <p-tab value="plantuml">
-            <span>PlantUML Source</span>
-          </p-tab>
-          <p-tab value="graph">
-            <span>Graph View</span>
-          </p-tab>
-          <p-tab value="structurizr-ui">
-            <span>Structurizr UI</span>
-          </p-tab>
-        </p-tablist>
-        <p-tabpanels>
-          <p-tabpanel value="diagram">
-          <div class="diagram-container">
+    <div class="diagram-viewer-compact">
+      <!-- Floating Action Toolbar -->
+      <div class="floating-toolbar">
+        <div class="view-selector">
+          <button 
+            *ngFor="let tab of tabs; trackBy: trackTab" 
+            class="tab-button"
+            [class.active]="activeTab() === tab.value"
+            (click)="onTabChange(tab.value)"
+            [title]="tab.tooltip">
+            <i [class]="tab.icon"></i>
+            <span class="tab-label">{{ tab.label }}</span>
+          </button>
+        </div>
+        
+        <!-- Action buttons for current view -->
+        <div class="action-buttons">
+          @if (activeTab() === 'diagram') {
+            @if (renderedDiagram() && renderedDiagram()!.success) {
+              <p-button
+                icon="pi pi-cloud-download"
+                size="small"
+                severity="secondary"
+                (click)="downloadDiagram('svg')"
+                [title]="'Download SVG'">
+              </p-button>
+              <p-button
+                icon="pi pi-arrow-up-right"
+                size="small"
+                severity="secondary"
+                (click)="openInNewTab()"
+                [title]="'Open in New Tab'">
+              </p-button>
+            }
+            <p-button
+              icon="pi pi-sync"
+              size="small"
+              severity="secondary"
+              (click)="rerender()"
+              [loading]="isLoading()"
+              [title]="'Re-render'">
+            </p-button>
+          } @else if (activeTab() === 'structurizr') {
+            <p-button
+              icon="pi pi-clipboard"
+              size="small"
+              severity="secondary"
+              (click)="copyDSL()"
+              [title]="'Copy DSL'">
+            </p-button>
+            <p-button
+              icon="pi pi-file-export"
+              size="small"
+              severity="secondary"
+              (click)="exportWorkspace()"
+              [loading]="isExporting()"
+              [title]="'Export Workspace'">
+            </p-button>
+          } @else if (activeTab() === 'plantuml') {
+            <p-button
+              icon="pi pi-clipboard"
+              size="small"
+              severity="secondary"
+              (click)="copyPlantUML()"
+              [title]="'Copy Code'">
+            </p-button>
+          }
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="content-area">
+        @if (activeTab() === 'diagram') {
+          <div class="diagram-content">
             @if (isLoading()) {
               <div class="loading-state">
-                <p-skeleton height="300px" borderRadius="8px"></p-skeleton>
-                <p class="text-center mt-3">
+                <p-skeleton height="100%" borderRadius="8px"></p-skeleton>
+                <div class="loading-text">
                   <i class="pi pi-spin pi-spinner"></i>
                   Rendering diagram...
-                </p>
+                </div>
               </div>
             } @else if (renderError()) {
-              <p-message
-                severity="warn"
-                [text]="renderError()"
-                class="mb-3">
-              </p-message>
-              <div class="fallback-content">
-                <div class="plantUML-source">
-                  <h5>PlantUML Source Code:</h5>
-                  <pre class="plantuml-code">{{ _plantUMLCode() }}</pre>
-                </div>
-                <div class="setup-instructions mt-3">
-                  <p-message severity="info">
-                    <div>
-                      <strong>To render visual diagrams:</strong><br>
-                      1. Start local PlantUML server: <code>docker run -d -p 8080:8080 plantuml/plantuml-server:jetty</code><br>
-                      2. Or configure a remote PlantUML service<br>
-                      3. Refresh the page to see rendered diagrams
-                    </div>
-                  </p-message>
+              <div class="error-state">
+                <p-message
+                  severity="warn"
+                  [text]="renderError()">
+                </p-message>
+                <div class="fallback-content">
+                  <pre class="code-preview">{{ _plantUMLCode() }}</pre>
+                  <div class="setup-hint">
+                    <strong>Setup PlantUML:</strong>
+                    <code>docker run -d -p 8080:8080 plantuml/plantuml-server:jetty</code>
+                  </div>
                 </div>
               </div>
             } @else if (renderedDiagram() && renderedDiagram()!.success) {
-              <div class="rendered-diagram">
+              <div class="rendered-content">
                 @if (renderedDiagram()!.format === 'html') {
                   <iframe
                     [src]="sanitizedUrl()"
@@ -95,152 +139,70 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
                     (error)="onImageError($event)"
                     (load)="onImageLoad()">
                 }
-
-                <div class="diagram-actions mt-3">
-                  <p-button
-                    label="Download SVG"
-                    icon="pi pi-download"
-                    severity="secondary"
-                    size="small"
-                    (click)="downloadDiagram('svg')"
-                    class="mr-2">
-                  </p-button>
-                  <p-button
-                    label="Download PNG"
-                    icon="pi pi-download"
-                    severity="secondary"
-                    size="small"
-                    (click)="downloadDiagram('png')"
-                    class="mr-2">
-                  </p-button>
-                  <p-button
-                    label="Open in New Tab"
-                    icon="pi pi-external-link"
-                    severity="secondary"
-                    size="small"
-                    (click)="openInNewTab()">
-                  </p-button>
-                </div>
               </div>
             }
           </div>
-          </p-tabpanel>
-
-          <p-tabpanel value="structurizr">
-          <div class="structurizr-container">
-            <h5>Structurizr DSL Code:</h5>
-            <pre class="structurizr-code">{{ structurizrDSL() }}</pre>
-
-            <div class="dsl-actions mt-3">
-              <p-button
-                label="Copy DSL"
-                icon="pi pi-copy"
-                severity="secondary"
-                size="small"
-                (click)="copyDSL()"
-                class="mr-2">
-              </p-button>
-              <p-button
-                label="Export Workspace"
-                icon="pi pi-upload"
-                severity="secondary"
-                size="small"
-                (click)="exportWorkspace()"
-                [loading]="isExporting()">
-              </p-button>
-            </div>
+        } @else if (activeTab() === 'structurizr') {
+          <div class="code-content">
+            <pre class="code-display">{{ structurizrDSL() }}</pre>
           </div>
-          </p-tabpanel>
-
-          <p-tabpanel value="plantuml">
-          <div class="plantuml-container">
-            <h5>PlantUML C4 Code:</h5>
-            <pre class="plantuml-code">{{ _plantUMLCode() }}</pre>
-
-            <div class="source-actions mt-3">
-              <p-button
-                label="Copy Code"
-                icon="pi pi-copy"
-                severity="secondary"
-                size="small"
-                (click)="copyPlantUML()"
-                class="mr-2">
-              </p-button>
-              <p-button
-                label="Re-render"
-                icon="pi pi-refresh"
-                severity="secondary"
-                size="small"
-                (click)="rerender()"
-                [loading]="isLoading()">
-              </p-button>
-            </div>
+        } @else if (activeTab() === 'plantuml') {
+          <div class="code-content">
+            <pre class="code-display">{{ _plantUMLCode() }}</pre>
           </div>
-          </p-tabpanel>
-
-          <p-tabpanel value="graph">
-          <div class="graph-container">
-            <h5>Interactive Graph View:</h5>
+        } @else if (activeTab() === 'graph') {
+          <div class="graph-content">
             @if (graphData()) {
-              <div id="graph-network" class="network-container" style="width: 100%; height: 500px;"></div>
-
+              <div id="graph-network" class="network-container"></div>
             } @else {
-              <p-message severity="info" text="No architecture context available for graph view"></p-message>
+              <div class="empty-state">
+                <i class="pi pi-share-alt"></i>
+                <p>No architecture context available for graph view</p>
+              </div>
             }
           </div>
-          </p-tabpanel>
-
-          <p-tabpanel value="structurizr-ui">
-          <div class="structurizr-ui-container">
-            <h5>Structurizr Workspace:</h5>
+        } @else if (activeTab() === 'structurizr-ui') {
+          <div class="workspace-content">
             @if (structurizrWorkspace()) {
-              <div class="workspace-info">
-                <h6>{{ structurizrWorkspace().name }}</h6>
+              <div class="workspace-overview">
+                <h3>{{ structurizrWorkspace().name }}</h3>
                 <p>{{ structurizrWorkspace().description }}</p>
-
-                <div class="workspace-stats mt-3">
-                  <div class="stat-item">
-                    <strong>People:</strong> {{ structurizrWorkspace().model.people.length }}
+                
+                <div class="stats-grid">
+                  <div class="stat">
+                    <span class="count">{{ structurizrWorkspace().model.people.length }}</span>
+                    <span class="label">People</span>
                   </div>
-                  <div class="stat-item">
-                    <strong>Systems:</strong> {{ structurizrWorkspace().model.softwareSystems.length }}
+                  <div class="stat">
+                    <span class="count">{{ structurizrWorkspace().model.softwareSystems.length }}</span>
+                    <span class="label">Systems</span>
                   </div>
-                  <div class="stat-item">
-                    <strong>Relationships:</strong> {{ structurizrWorkspace().model.relationships.length }}
+                  <div class="stat">
+                    <span class="count">{{ structurizrWorkspace().model.relationships.length }}</span>
+                    <span class="label">Relations</span>
                   </div>
                 </div>
 
-                <!-- C4 Diagram Previews -->
-                <div class="diagram-previews mt-4">
-                  <h6>Available C4 Diagrams:</h6>
-
+                <div class="diagram-types">
                   @if (structurizrWorkspace().views.systemContextViews.length > 0) {
-                    <div class="diagram-section">
-                      <h6><i class="pi pi-sitemap"></i> System Context Diagrams</h6>
+                    <div class="diagram-type">
+                      <h4><i class="pi pi-building"></i> System Context Views</h4>
                       @for (view of structurizrWorkspace().views.systemContextViews; track view.key) {
-                        <div class="diagram-card">
-                          <div class="diagram-placeholder">
-                            <i class="pi pi-diagram-tree" style="font-size: 2rem; color: #1976d2;"></i>
-                            <p><strong>{{ view.title }}</strong></p>
-                            <p class="text-sm">{{ view.description }}</p>
-                            <small>Shows system in its environment with external users and dependencies</small>
-                          </div>
+                        <div class="view-card">
+                          <strong>{{ view.title }}</strong>
+                          <p>{{ view.description }}</p>
                         </div>
                       }
                     </div>
                   }
-
+                  
                   @if (structurizrWorkspace().views.containerViews.length > 0) {
-                    <div class="diagram-section">
-                      <h6><i class="pi pi-box"></i> Container Diagrams</h6>
+                    <div class="diagram-type">
+                      <h4><i class="pi pi-objects-column"></i> Container Views</h4>
                       @for (view of structurizrWorkspace().views.containerViews; track view.key) {
-                        <div class="diagram-card">
-                          <div class="diagram-placeholder">
-                            <i class="pi pi-objects-column" style="font-size: 2rem; color: #388e3c;"></i>
-                            <p><strong>{{ view.title }}</strong></p>
-                            <p class="text-sm">{{ view.description }}</p>
-                            <small>Shows high-level containers and their interactions within the system</small>
-                          </div>
+                        <div class="view-card">
+                          <strong>{{ view.title }}</strong>
+                          <p>{{ view.description }}</p>
                         </div>
                       }
                     </div>
@@ -248,224 +210,293 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
                 </div>
               </div>
             } @else {
-              <p-message severity="info" text="No architecture context available for Structurizr workspace"></p-message>
+              <div class="empty-state">
+                <i class="pi pi-briefcase"></i>
+                <p>No architecture context available for Structurizr workspace</p>
+              </div>
             }
           </div>
-          </p-tabpanel>
-        </p-tabpanels>
-      </p-tabs>
+        }
+      </div>
     </div>
   `,
   styles: [`
-    .diagram-viewer {
-      width: 100%;
+    .diagram-viewer-compact {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 500px;
     }
 
-    .diagram-container {
-      min-height: 300px;
-      position: relative;
+    .floating-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      background: var(--p-surface-0);
+      border-bottom: 1px solid var(--p-surface-border);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .view-selector {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .tab-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-button:hover {
+      background: var(--p-surface-100);
+      color: var(--p-text-color);
+    }
+
+    .tab-button.active {
+      background: var(--p-primary-color);
+      color: var(--p-primary-contrast-color);
+      border-color: var(--p-primary-color);
+    }
+
+    .tab-button i {
+      font-size: 1rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .diagram-content,
+    .code-content,
+    .graph-content,
+    .workspace-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .loading-state {
-      text-align: center;
-      padding: 2rem;
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .loading-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
+    }
+
+    .error-state,
+    .fallback-content {
+      padding: 1rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .code-preview,
+    .setup-hint {
+      background: var(--p-surface-100);
+      padding: 1rem;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .setup-hint code {
+      background: var(--p-surface-200);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .rendered-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
     }
 
     .diagram-image {
       max-width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      background: white;
-      padding: 1rem;
+      max-height: 100%;
+      border-radius: 6px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     }
 
     .diagram-frame {
       width: 100%;
-      min-height: 400px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      height: 100%;
+      border-radius: 6px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     }
 
-    .rendered-diagram {
-      text-align: center;
-    }
-
-    .diagram-actions,
-    .dsl-actions,
-    .source-actions {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .plantuml-code,
-    .structurizr-code {
+    .code-display {
+      flex: 1;
       background: var(--p-surface-900);
       color: var(--p-surface-0);
-      padding: 1.5rem;
-      border-radius: 8px;
+      padding: 1rem;
+      border-radius: 0;
       font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 0.875rem;
-      line-height: 1.6;
-      overflow-x: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .fallback-content {
-      padding: 1rem;
-    }
-
-    .setup-instructions {
-      background: var(--p-surface-50);
-      padding: 1rem;
-      border-radius: 8px;
-      border-left: 4px solid var(--p-blue-500);
-    }
-
-    .setup-instructions code {
-      background: var(--p-surface-100);
-      padding: 0.2rem 0.4rem;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 0.875rem;
-    }
-
-    .mr-2 {
-      margin-right: 0.5rem;
-    }
-
-    .mt-3 {
-      margin-top: 1rem;
-    }
-
-    .mb-3 {
-      margin-bottom: 1rem;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      overflow: auto;
+      white-space: pre;
+      margin: 0;
     }
 
     .network-container {
       width: 100%;
-      height: 500px;
-      border: 1px solid var(--p-surface-border);
-      border-radius: 8px;
+      flex: 1;
+      min-height: 400px;
+      border-radius: 6px;
       background: var(--p-surface-0);
     }
 
-    .graph-container,
-    .structurizr-ui-container {
-      padding: 1rem;
-    }
-
-    .workspace-info {
-      background: var(--p-surface-50);
-      padding: 1.5rem;
-      border-radius: 8px;
-      border-left: 4px solid var(--p-blue-500);
-    }
-
-    .workspace-stats {
+    .empty-state {
+      flex: 1;
       display: flex;
-      gap: 2rem;
-      flex-wrap: wrap;
-      margin-top: 1rem;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
     }
 
-    .stat-item {
-      padding: 0.5rem 1rem;
-      background: var(--p-surface-100);
-      border-radius: 4px;
-      min-width: 120px;
+    .empty-state i {
+      font-size: 3rem;
+      opacity: 0.5;
     }
 
-    .workspace-preview ul {
-      list-style-type: disc;
-      margin-left: 1.5rem;
-      margin-top: 0.5rem;
+    .workspace-overview {
+      padding: 1.5rem;
+      overflow-y: auto;
     }
 
-    .workspace-preview li {
-      padding: 0.25rem 0;
+    .workspace-overview h3 {
+      margin: 0 0 0.5rem 0;
       color: var(--p-text-color);
     }
 
-    .graph-actions,
-    .structurizr-actions {
+    .workspace-overview p {
+      margin: 0 0 1.5rem 0;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
+    }
+
+    .stats-grid {
       display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-    }
-
-    .diagram-previews {
-      background: var(--p-surface-50);
-      padding: 1.5rem;
-      border-radius: 8px;
-      border: 1px solid var(--p-surface-border);
-    }
-
-    .diagram-section {
+      gap: 1.5rem;
       margin-bottom: 2rem;
     }
 
-    .diagram-section h6 {
-      display: block;
-      font-weight: 600;
-      color: var(--p-text-color);
-      margin-bottom: 1rem;
-      font-size: 1.1rem;
-    }
-
-    .diagram-card {
-      background: var(--p-surface-0);
-      border: 1px solid var(--p-surface-border);
-      border-radius: 6px;
-      margin-bottom: 1rem;
-      transition: all 0.2s ease;
-    }
-
-    .diagram-card:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      border-color: var(--p-blue-300);
-    }
-
-    .diagram-placeholder {
-      padding: 2rem;
+    .stat {
       text-align: center;
-      background: var(--p-surface-0);
-      border-radius: 6px;
-    }
-
-    .diagram-placeholder p {
-      margin: 0.5rem 0;
-    }
-
-    .diagram-placeholder small {
-      color: var(--p-text-color-secondary);
-      font-style: italic;
-    }
-
-    .integration-info {
-      background: var(--p-blue-50);
-      border-radius: 6px;
       padding: 1rem;
+      background: var(--p-surface-100);
+      border-radius: 8px;
+      min-width: 80px;
+    }
+
+    .stat .count {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--p-primary-color);
+    }
+
+    .stat .label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--p-text-muted-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .diagram-types {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .diagram-type h4 {
+      margin: 0 0 1rem 0;
+      font-size: 1rem;
+      color: var(--p-text-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .view-card {
+      background: var(--p-surface-50);
+      padding: 1rem;
+      border-radius: 6px;
+      border-left: 3px solid var(--p-primary-color);
+      margin-bottom: 0.75rem;
+    }
+
+    .view-card strong {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--p-text-color);
+    }
+
+    .view-card p {
+      margin: 0;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
     }
 
     @media (max-width: 768px) {
-      .diagram-actions,
-      .dsl-actions,
-      .source-actions {
-        justify-content: flex-start;
+      .tab-button .tab-label {
+        display: none;
       }
-
-      .plantuml-code,
-      .structurizr-code {
-        font-size: 0.75rem;
-        padding: 1rem;
+      
+      .stats-grid {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      
+      .floating-toolbar {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+      }
+      
+      .view-selector,
+      .action-buttons {
+        justify-content: center;
       }
     }
   `]
@@ -487,6 +518,40 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   activeTab = signal<string>('diagram');
   graphData = signal<any>(null);
   structurizrWorkspace = signal<any>(null);
+
+  // Tab configuration for compact view
+  tabs = [
+    { 
+      value: 'diagram', 
+      label: 'Diagram', 
+      icon: 'pi pi-palette',
+      tooltip: 'Rendered Architecture Diagram'
+    },
+    { 
+      value: 'structurizr', 
+      label: 'DSL', 
+      icon: 'pi pi-code',
+      tooltip: 'Structurizr DSL Source'
+    },
+    { 
+      value: 'plantuml', 
+      label: 'PlantUML', 
+      icon: 'pi pi-file-edit',
+      tooltip: 'PlantUML C4 Source Code'
+    },
+    { 
+      value: 'graph', 
+      label: 'Graph', 
+      icon: 'pi pi-sitemap',
+      tooltip: 'Interactive Network Graph'
+    },
+    { 
+      value: 'structurizr-ui', 
+      label: 'Workspace', 
+      icon: 'pi pi-briefcase',
+      tooltip: 'Structurizr Workspace Overview'
+    }
+  ];
 
   constructor(
     private diagramService: DiagramRenderingService,
@@ -769,9 +834,17 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
 
 
 
-  onTabChange(event: any) {
-    this.activeTab.set(event);
-    this.generateGraphData();
+  onTabChange(tabValue: string) {
+    this.activeTab.set(tabValue);
+    if (tabValue === 'graph') {
+      this.generateGraphData();
+      // Initialize graph after a short delay to ensure DOM is ready
+      setTimeout(() => this.initializeGraph(), 100);
+    }
+  }
+
+  trackTab(index: number, tab: any) {
+    return tab.value;
   }
 
   generateFromStructurizr(format: 'plantuml' | 'mermaid' | 'websequence') {
