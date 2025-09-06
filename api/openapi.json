@@ -1,0 +1,2341 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Architecture as Code Engine API",
+    "description": "REST API for managing architecture models",
+    "version": "v1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Architecture",
+      "description": "Architecture model operations"
+    },
+    {
+      "name": "Relationships",
+      "description": "ArchiMate relationship operations"
+    },
+    {
+      "name": "Technology Layer",
+      "description": "Technology layer operations for architecture models"
+    },
+    {
+      "name": "Business Layer",
+      "description": "Business layer operations for architecture models"
+    },
+    {
+      "name": "Application Layer",
+      "description": "Application layer operations for architecture models"
+    }
+  ],
+  "paths": {
+    "/api/v1/architectures/{id}/validate": {
+      "post": {
+        "tags": [
+          "Architecture"
+        ],
+        "summary": "Validate architecture",
+        "description": "Validate an architecture model",
+        "operationId": "validateArchitecture",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResult"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResult"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Validation completed",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/relationships/validate": {
+      "post": {
+        "tags": [
+          "Relationships"
+        ],
+        "summary": "Validate relationships",
+        "description": "Validate all relationships in an architecture for ArchiMate compliance",
+        "operationId": "validateRelationships",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Validation completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/reload": {
+      "post": {
+        "tags": [
+          "Architecture"
+        ],
+        "summary": "Reload models from files",
+        "description": "Reload architecture models from PKL files",
+        "operationId": "reloadModelsFromFiles",
+        "responses": {
+          "500": {
+            "description": "Error reloading models",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Architecture"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Models reloaded successfully",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Architecture"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures": {
+      "get": {
+        "tags": [
+          "Architecture"
+        ],
+        "summary": "Get all architectures",
+        "description": "Retrieve all architecture models",
+        "operationId": "getAllArchitectures",
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved architectures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Architecture"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Architecture"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{id}": {
+      "get": {
+        "tags": [
+          "Architecture"
+        ],
+        "summary": "Get architecture by ID",
+        "description": "Retrieve a specific architecture by its ID",
+        "operationId": "getArchitectureById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved architecture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Architecture"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Architecture"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Architecture"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get complete technology layer",
+        "description": "Retrieve the complete technology layer for an architecture including all technology elements",
+        "operationId": "getTechnologyLayer",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved technology layer",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnologyLayer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnologyLayer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnologyLayer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology/system-software": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get system software",
+        "description": "Retrieve all system software from PKL models",
+        "operationId": "getSystemSoftware",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved system software",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SystemSoftware"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SystemSoftware"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SystemSoftware"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology/services": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get technology services",
+        "description": "Retrieve all technology services from PKL models",
+        "operationId": "getTechnologyServices",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyService"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyService"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved technology services",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyService"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology/nodes": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get technology nodes",
+        "description": "Retrieve all technology nodes from PKL models",
+        "operationId": "getTechnologyNodes",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved technology nodes",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyNode"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyNode"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyNode"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology/nodes/{nodeId}": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get technology node by ID",
+        "description": "Retrieve a specific technology node by its ID",
+        "operationId": "getTechnologyNodeById",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nodeId",
+            "in": "path",
+            "description": "Node ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnologyNode"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture or node not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnologyNode"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved technology node",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnologyNode"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology/interfaces": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get technology interfaces",
+        "description": "Retrieve all technology interfaces from PKL models",
+        "operationId": "getTechnologyInterfaces",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved technology interfaces",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyInterface"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyInterface"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnologyInterface"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/technology/artifacts": {
+      "get": {
+        "tags": [
+          "Technology Layer"
+        ],
+        "summary": "Get artifacts",
+        "description": "Retrieve all artifacts from PKL models",
+        "operationId": "getArtifacts",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved artifacts",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Artifact"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Artifact"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Artifact"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/relationships": {
+      "get": {
+        "tags": [
+          "Relationships"
+        ],
+        "summary": "Get all relationships",
+        "description": "Retrieve all relationships for an architecture",
+        "operationId": "getAllRelationships",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved relationships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/relationships/structural": {
+      "get": {
+        "tags": [
+          "Relationships"
+        ],
+        "summary": "Get structural relationships ordered by strength",
+        "description": "Retrieve structural relationships ordered from weakest (ASSOCIATION) to strongest (COMPOSITION)",
+        "operationId": "getStructuralRelationships",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved structural relationships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/relationships/for-element/{elementId}": {
+      "get": {
+        "tags": [
+          "Relationships"
+        ],
+        "summary": "Get relationships for element",
+        "description": "Retrieve all relationships where the specified element is source or target",
+        "operationId": "getRelationshipsForElement",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "elementId",
+            "in": "path",
+            "description": "Element ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved relationships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/relationships/by-type/{relationshipType}": {
+      "get": {
+        "tags": [
+          "Relationships"
+        ],
+        "summary": "Get relationships by type",
+        "description": "Retrieve relationships filtered by ArchiMate relationship type",
+        "operationId": "getRelationshipsByType",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "relationshipType",
+            "in": "path",
+            "description": "Relationship type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved relationships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid relationship type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/relationships/by-category/{category}": {
+      "get": {
+        "tags": [
+          "Relationships"
+        ],
+        "summary": "Get relationships by category",
+        "description": "Retrieve relationships filtered by ArchiMate relationship category (STRUCTURAL, DYNAMIC, DEPENDENCY, OTHER)",
+        "operationId": "getRelationshipsByCategory",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "path",
+            "description": "Relationship category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Invalid relationship category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved relationships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relationship"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get complete business layer",
+        "description": "Retrieve the complete business layer for an architecture including all business elements",
+        "operationId": "getBusinessLayer",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved business layer",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessLayer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessLayer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessLayer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business/services": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get business services",
+        "description": "Retrieve all business services from PKL models",
+        "operationId": "getBusinessServices",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessService"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessService"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved business services",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessService"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business/processes": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get business processes",
+        "description": "Retrieve all business processes from PKL models",
+        "operationId": "getBusinessProcesses",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessProcess"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessProcess"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved business processes",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessProcess"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business/domains": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get business domains",
+        "description": "Retrieve all business domains from PKL models",
+        "operationId": "getBusinessDomains",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved business domains",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessDomain"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessDomain"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessDomain"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business/capabilities": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get business capabilities",
+        "description": "Retrieve all business capabilities from PKL models",
+        "operationId": "getBusinessCapabilities",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessCapability"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved business capabilities",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessCapability"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessCapability"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business/actors": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get business actors",
+        "description": "Retrieve all business actors from PKL models",
+        "operationId": "getBusinessActors",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessActor"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessActor"
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Successfully retrieved business actors",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessActor"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/business/actors/{actorId}": {
+      "get": {
+        "tags": [
+          "Business Layer"
+        ],
+        "summary": "Get business actor by ID",
+        "description": "Retrieve a specific business actor by its ID",
+        "operationId": "getBusinessActorById",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorId",
+            "in": "path",
+            "description": "Actor ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved business actor",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessActor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture or actor not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessActor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessActor"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/{architectureId}/application": {
+      "get": {
+        "tags": [
+          "Application Layer"
+        ],
+        "summary": "Get complete application layer",
+        "description": "Retrieve the complete application layer for an architecture including all application elements",
+        "operationId": "getApplicationLayer",
+        "parameters": [
+          {
+            "name": "architectureId",
+            "in": "path",
+            "description": "Architecture ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved application layer",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationLayer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Architecture not found",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationLayer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationLayer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/architectures/relationship-types": {
+      "get": {
+        "tags": [
+          "Architecture"
+        ],
+        "summary": "Get all relationship types",
+        "description": "Retrieve information about all available ArchiMate relationship types",
+        "operationId": "getAllRelationshipTypes",
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved relationship types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "elementId": {
+            "type": "string"
+          }
+        }
+      },
+      "ValidationResult": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationWarning"
+            }
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ValidationWarning": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "elementId": {
+            "type": "string"
+          }
+        }
+      },
+      "Application": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "stereoType": {
+            "type": "string",
+            "enum": [
+              "BUSINESS_APPLICATION",
+              "IT_APPLICATION",
+              "PLATFORM",
+              "INFRASTRUCTURE",
+              "MICROSOLUTION"
+            ]
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": [
+              "PLAN",
+              "DEVELOP",
+              "ACTIVE",
+              "PHASEOUT",
+              "RETIRE"
+            ]
+          }
+        }
+      },
+      "ApplicationComponent": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "componentType": {
+            "type": "string",
+            "enum": [
+              "FRONTEND",
+              "BACKEND",
+              "DATABASE",
+              "INTEGRATION",
+              "ANALYTICS"
+            ]
+          },
+          "technology": {
+            "type": "string"
+          }
+        }
+      },
+      "ApplicationInterface": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "interfaceType": {
+            "type": "string",
+            "enum": [
+              "API",
+              "UI",
+              "FILE",
+              "MESSAGE"
+            ]
+          },
+          "format": {
+            "type": "string"
+          }
+        }
+      },
+      "ApplicationLayer": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Application"
+            }
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationComponent"
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationService"
+            }
+          },
+          "interfaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApplicationInterface"
+            }
+          }
+        }
+      },
+      "ApplicationService": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Architecture": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "businessLayer": {
+            "$ref": "#/components/schemas/BusinessLayer"
+          },
+          "applicationLayer": {
+            "$ref": "#/components/schemas/ApplicationLayer"
+          },
+          "technologyLayer": {
+            "$ref": "#/components/schemas/TechnologyLayer"
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "Artifact": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "artifactType": {
+            "type": "string",
+            "enum": [
+              "CONFIGURATION",
+              "DATA",
+              "SOFTWARE",
+              "PHYSICAL"
+            ]
+          },
+          "format": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          }
+        }
+      },
+      "BusinessActor": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "INTERNAL",
+              "EXTERNAL",
+              "PARTNER"
+            ]
+          }
+        }
+      },
+      "BusinessCapability": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "parentCapability": {
+            "type": "string"
+          }
+        }
+      },
+      "BusinessDomain": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "stakeholders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BusinessLayer": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessDomain"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessCapability"
+            }
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessActor"
+            }
+          },
+          "processes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessProcess"
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessService"
+            }
+          }
+        }
+      },
+      "BusinessProcess": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "processType": {
+            "type": "string",
+            "enum": [
+              "CORE",
+              "SUPPORT",
+              "MANAGEMENT"
+            ]
+          },
+          "owner": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BusinessService": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "serviceLevel": {
+            "type": "string"
+          },
+          "availability": {
+            "type": "string"
+          }
+        }
+      },
+      "Relationship": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "relationshipType": {
+            "type": "string",
+            "enum": [
+              "ASSOCIATION",
+              "ASSIGNMENT",
+              "REALIZATION",
+              "AGGREGATION",
+              "COMPOSITION",
+              "TRIGGERING",
+              "FLOW",
+              "SERVING",
+              "ACCESS",
+              "INFLUENCE",
+              "SPECIALIZATION"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object"
+          },
+          "target": {
+            "type": "object"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "flowType": {
+            "type": "string",
+            "enum": [
+              "INFORMATION",
+              "VALUE",
+              "GOODS",
+              "RESOURCES",
+              "DATA",
+              "CONTROL",
+              "EVENT",
+              "SIGNAL",
+              "MATERIAL"
+            ]
+          },
+          "accessType": {
+            "type": "string",
+            "enum": [
+              "READ",
+              "WRITE",
+              "READ_WRITE",
+              "ACCESS"
+            ]
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "STRUCTURAL",
+              "DYNAMIC",
+              "DEPENDENCY",
+              "OTHER"
+            ]
+          },
+          "strength": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SystemSoftware": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "softwareType": {
+            "type": "string",
+            "enum": [
+              "OS",
+              "DATABASE",
+              "MIDDLEWARE",
+              "RUNTIME"
+            ]
+          },
+          "vendor": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "TechnologyInterface": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TechnologyLayer": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TechnologyNode"
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TechnologyService"
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          },
+          "interfaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TechnologyInterface"
+            }
+          },
+          "systemSoftware": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemSoftware"
+            }
+          }
+        }
+      },
+      "TechnologyNode": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "nodeType": {
+            "type": "string",
+            "enum": [
+              "SERVER",
+              "NETWORK",
+              "STORAGE",
+              "CLIENT",
+              "CLOUD"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "capacity": {
+            "type": "string"
+          },
+          "operatingSystem": {
+            "type": "string"
+          }
+        }
+      },
+      "TechnologyService": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "documentation": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "serviceCategory": {
+            "type": "string",
+            "enum": [
+              "COMPUTE",
+              "STORAGE",
+              "NETWORK",
+              "SECURITY",
+              "MONITORING"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

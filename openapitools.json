@@ -1,0 +1,19 @@
+{
+  "generator-cli": {
+    "version": "7.10.0",
+    "generators": {
+      "typescript-angular": {
+        "generatorName": "typescript-angular",
+        "output": "./src/generated/api",
+        "inputSpec": "./api/openapi.json",
+        "additionalProperties": {
+          "modelPropertyNaming": "camelCase",
+          "supportsES6": true,
+          "withInterfaces": true,
+          "useSingleRequestParameter": true,
+          "ngVersion": "20"
+        }
+      }
+    }
+  }
+}

@@ -1,18 +1,29 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --p-font-family: 'Arial', sans-serif;
+  --p-font-size: 16px;
+  --p-text-color: #222;
+  --p-surface-ground: #f5f5f5;
+}
 
-/* Global Styles */
 * {
   box-sizing: border-box;
 }
 
+
+
 body {
-  font-family: var(--p-font-family);
+  font-family: var(--p-font-family), serif;
   font-size: var(--p-font-size);
   color: var(--p-text-color);
   background-color: var(--p-surface-ground);
   margin: 0;
   padding: 0;
   line-height: 1.6;
+}
+
+/* Ensure consistent slate background */
+.architecture-dashboard {
+  background: var(--p-surface-50);
 }
 
 /* Enhanced Grid System */
@@ -34,21 +45,21 @@ body {
 
 /* Architecture Studio Specific Styles */
 .architecture-dashboard {
-  background: var(--p-surface-ground);
   min-height: 100vh;
   padding: 2rem 1rem;
 }
 
 /* Enhanced Card Styling */
 .p-card {
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px 0 rgba(15, 23, 42, 0.1);
   border-radius: 12px;
   border: 1px solid var(--p-surface-border);
   overflow: hidden;
+  background: var(--p-surface-0);
 }
 
 .p-card .p-card-header {
-  background: linear-gradient(135deg, var(--p-primary-color), var(--p-primary-600));
+  background: linear-gradient(135deg, var(--p-primary-color), var(--p-primary-700));
   color: var(--p-primary-contrast-color);
   padding: 1.5rem;
   font-weight: 600;
@@ -130,17 +141,17 @@ body {
 }
 
 .analysis-section {
-  background: linear-gradient(135deg, var(--p-surface-0), var(--p-surface-50));
+  background: linear-gradient(135deg, var(--p-surface-0), var(--p-surface-100));
   padding: 1.5rem;
   border-radius: 12px;
   border-left: 4px solid var(--p-primary-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .analysis-section:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 
 .analysis-section h5 {
@@ -191,7 +202,7 @@ body {
 /* Diagram Container */
 .diagram-container {
   min-height: 200px;
-  background: linear-gradient(135deg, var(--p-surface-50), var(--p-surface-100));
+  background: linear-gradient(135deg, var(--p-surface-100), var(--p-surface-200));
   padding: 2rem;
   border-radius: 12px;
   text-align: center;
@@ -246,16 +257,16 @@ body {
   .architecture-dashboard {
     padding: 1rem;
   }
-  
+
   .analysis-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
-  
+
   .flex {
     flex-wrap: wrap;
   }
-  
+
   .p-card .p-card-header,
   .p-card .p-card-content {
     padding: 1rem;
