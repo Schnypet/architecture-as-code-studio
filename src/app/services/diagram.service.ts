@@ -13,7 +13,7 @@ import type { Architecture } from '../../generated/api';
   providedIn: 'root'
 })
 export class DiagramService {
-  
+
   constructor(
     private rendererRegistry: RendererRegistryService,
     private structurizrRenderer: StructurizrRenderer,
@@ -30,15 +30,15 @@ export class DiagramService {
     this.rendererRegistry.registerRenderer(this.likeC4Renderer);
     this.rendererRegistry.registerRenderer(this.graphRenderer);
     this.rendererRegistry.registerRenderer(this.plantUMLRenderer);
-    
-    console.log('DiagramService initialized with renderers:', 
+
+    console.log('DiagramService initialized with renderers:',
       this.rendererRegistry.getRendererNames());
   }
 
   // Type guard to check if object is ArchitectureModel
   private isArchitectureModel(obj: any): obj is ArchitectureModel {
-    return obj && typeof obj === 'object' && 
-           typeof obj.uid === 'string' && 
+    return obj && typeof obj === 'object' &&
+           typeof obj.uid === 'string' &&
            typeof obj.name === 'string';
   }
 
@@ -66,14 +66,14 @@ export class DiagramService {
   ): Observable<DiagramOutput> {
     try {
       // Convert to ArchitectureModel if needed
-      const model = this.isArchitectureModel(architecture) ? 
-        architecture as ArchitectureModel : 
+      const model = this.isArchitectureModel(architecture) ?
+        architecture as ArchitectureModel :
         this.convertToArchitectureModel(architecture);
 
       // Prepare render options
       const renderOptions: RenderOptions = {
         format: format || 'dsl',
-        viewType: 'landscape',
+        viewType: 'component',
         includeMetadata: true,
         ...options
       };
@@ -89,11 +89,11 @@ export class DiagramService {
     architecture: Architecture | ArchitectureModel,
     rendererConfigs: Array<{ renderer: string; format?: string; options?: Partial<RenderOptions> }>
   ): Observable<DiagramOutput[]> {
-    const model = this.isArchitectureModel(architecture) ? 
-      architecture as ArchitectureModel : 
+    const model = this.isArchitectureModel(architecture) ?
+      architecture as ArchitectureModel :
       this.convertToArchitectureModel(architecture);
 
-    const renderPromises = rendererConfigs.map(config => 
+    const renderPromises = rendererConfigs.map(config =>
       this.renderDiagram(model, config.renderer, config.format, config.options).toPromise()
     );
 
@@ -123,8 +123,8 @@ export class DiagramService {
 
   // Validate architecture model
   validateArchitecture(architecture: Architecture | ArchitectureModel): ValidationResult {
-    const model = this.isArchitectureModel(architecture) ? 
-      architecture as ArchitectureModel : 
+    const model = this.isArchitectureModel(architecture) ?
+      architecture as ArchitectureModel :
       this.convertToArchitectureModel(architecture);
 
     return ArchitectureModelAnalyzer.validate(model);
@@ -132,12 +132,12 @@ export class DiagramService {
 
   // Analyze architecture model
   analyzeArchitecture(architecture: Architecture | ArchitectureModel): any {
-    const model = this.isArchitectureModel(architecture) ? 
-      architecture as ArchitectureModel : 
+    const model = this.isArchitectureModel(architecture) ?
+      architecture as ArchitectureModel :
       this.convertToArchitectureModel(architecture);
 
     const basicAnalysis = ArchitectureModelAnalyzer.analyze(model);
-    
+
     // Add renderer-specific analysis
     const rendererAnalysis: Record<string, any> = {};
     this.rendererRegistry.getAllRenderers().forEach(renderer => {
@@ -160,7 +160,7 @@ export class DiagramService {
   // Get diagram tabs for UI
   getDiagramTabs(): DiagramTab[] {
     const tabs: DiagramTab[] = [];
-    
+
     this.rendererRegistry.getAllRenderers().forEach(renderer => {
       renderer.supportedFormats.forEach(format => {
         tabs.push({
@@ -209,10 +209,10 @@ export class DiagramService {
 
   // Export diagram content
   exportDiagram(content: string, format: string, filename?: string): void {
-    const blob = new Blob([content], { 
-      type: this.getMimeTypeForFormat(format) 
+    const blob = new Blob([content], {
+      type: this.getMimeTypeForFormat(format)
     });
-    
+
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -234,7 +234,7 @@ export class DiagramService {
         textArea.value = content;
         document.body.appendChild(textArea);
         textArea.select();
-        
+
         try {
           document.execCommand('copy');
           resolve();

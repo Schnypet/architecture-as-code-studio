@@ -25,6 +25,7 @@
               }
             ],
             "styles": [
+              "node_modules/primeicons/primeicons.css",
               "src/styles.scss"
             ]
           },
@@ -60,6 +61,10 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json",
+            "port": 4200
+          },
           "configurations": {
             "production": {
               "buildTarget": "architecture-as-code-studio:build:production"

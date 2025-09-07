@@ -65,13 +65,15 @@ export class ArchitectureService {
 
   getArchitectureById(id: string): Observable<Architecture | null> {
     return this.architectureApi.getArchitectureById({ id }).pipe(
+      map(architecture => {
+        console.log(`getArchitectureById - received from API for ${id}:`, architecture);
+        return architecture;
+      }),
       catchError(error => {
         console.error(`Backend not available for architecture ${id}, using mock data:`, error);
-        // Fallback to mock data for testing
-        if (id === 'arch-001') {
-          return this.mockDataService.getMockArchitecture();
-        }
-        return of(null);
+        // Fallback to mock data for testing - return mock for any architecture ID
+        console.log('Falling back to mock data for architecture:', id);
+        return this.mockDataService.getMockArchitecture();
       })
     );
   }
@@ -80,6 +82,8 @@ export class ArchitectureService {
     return this.getArchitectureById(id).pipe(
       map(architecture => {
         if (!architecture) return null;
+        console.log('getCompleteArchitecture - received architecture:', architecture);
+        console.log('getCompleteArchitecture - applications:', architecture.applicationLayer?.applications);
         return architecture;
       })
     );

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { encode } from 'plantuml-encoder';
+import { environment } from '../../environments/environment';
 
 // PrimeNG components
 import { CardModule } from 'primeng/card';
@@ -14,6 +15,8 @@ import { SkeletonModule } from 'primeng/skeleton';
 // Using standard HTML textarea instead
 
 import { DiagramService, DiagramTab } from '../services/diagram.service';
+import { PlantUMLService, PlantUMLDiagram } from '../renderers/plantuml.service';
+import { TrustResourceUrlPipe } from '../pipes/trust-resource-url.pipe';
 import { ArchitectureModel } from '../models/architecture.model';
 import { DiagramOutput } from '../renderers/base-renderer.interface';
 import type { Architecture } from '../../generated/api';
@@ -28,6 +31,9 @@ export interface RendererTab {
   viewMode: 'code' | 'diagram'; // Toggle zwischen Code und Diagramm
   outputs: Map<string, DiagramOutput>; // Format -> DiagramOutput
   editableCode: string;
+  plantUMLDiagram?: PlantUMLDiagram; // For PlantUML rendered diagram
+  isRendering?: boolean; // Loading state for diagram rendering
+  plantUMLDisplayMode?: 'iframe' | 'image'; // PlantUML display mode toggle
 }
 
 @Component({
@@ -119,6 +125,7 @@ export interface RendererTab {
             <div class="model-section">
               <h4><i class="pi pi-desktop"></i> Application Layer</h4>
               <div class="section-content">
+
                 @if (_architecture()!.applicationLayer!.applications?.length) {
                   <div class="subsection">
                     <strong>Applications ({{ _architecture()!.applicationLayer!.applications!.length }})</strong>
@@ -126,8 +133,14 @@ export interface RendererTab {
                       @for (app of _architecture()!.applicationLayer!.applications!; track app.uid) {
                         <li>
                           <strong>{{ app.name }}</strong>
+                          @if (app.stereoType) {
+                            <span class="type-badge">{{ app.stereoType }}</span>
+                          }
                           @if (app.lifecycle) {
                             <span class="type-badge">{{ app.lifecycle }}</span>
+                          }
+                          @if (app.vendor) {
+                            <span class="vendor-badge">{{ app.vendor }}</span>
                           }
                           @if (app.description) {
                             <p>{{ app.description }}</p>
@@ -135,6 +148,11 @@ export interface RendererTab {
                         </li>
                       }
                     </ul>
+                  </div>
+                } @else {
+                  <div class="subsection">
+                    <strong>Applications (0)</strong>
+                    <p class="no-data">No applications found in this layer</p>
                   </div>
                 }
 
@@ -251,7 +269,7 @@ export interface RendererTab {
         <!-- Renderer Tab Navigation -->
         <div class="renderer-tabs">
           @for (tab of rendererTabs(); track tab.id) {
-            <button 
+            <button
               class="renderer-tab"
               [class.active]="activeRendererTab() === tab.id"
               (click)="selectRendererTab(tab.id)"
@@ -269,7 +287,7 @@ export interface RendererTab {
             <div class="tab-controls">
               <!-- View Mode Toggle -->
               <div class="view-toggle">
-                <button 
+                <button
                   class="toggle-btn"
                   [class.active]="getActiveRenderer()!.viewMode === 'code'"
                   (click)="setViewMode('code')"
@@ -277,7 +295,7 @@ export interface RendererTab {
                   <i class="pi pi-file-edit"></i>
                   Code
                 </button>
-                <button 
+                <button
                   class="toggle-btn"
                   [class.active]="getActiveRenderer()!.viewMode === 'diagram'"
                   (click)="setViewMode('diagram')"
@@ -290,7 +308,7 @@ export interface RendererTab {
               <!-- Format Selector -->
               <div class="format-selector">
                 <label>Format:</label>
-                <select 
+                <select
                   [value]="getActiveRenderer()!.currentFormat"
                   (change)="onFormatChange($event)">
                   @for (format of getActiveRenderer()!.formats; track format) {
@@ -298,6 +316,31 @@ export interface RendererTab {
                   }
                 </select>
               </div>
+
+              <!-- PlantUML Display Mode Toggle -->
+              @if (getActiveRenderer()?.name === 'plantuml' && getActiveRenderer()?.viewMode === 'diagram') {
+                <div class="display-mode-toggle">
+                  <label>Display:</label>
+                  <div class="toggle-group">
+                    <button
+                      class="toggle-option"
+                      [class.active]="getActiveRenderer()!.plantUMLDisplayMode !== 'image'"
+                      (click)="setPlantUMLDisplayMode('iframe')"
+                      title="Show as interactive iframe">
+                      <i class="pi pi-window-maximize"></i>
+                      Iframe
+                    </button>
+                    <button
+                      class="toggle-option"
+                      [class.active]="getActiveRenderer()!.plantUMLDisplayMode === 'image'"
+                      (click)="setPlantUMLDisplayMode('image')"
+                      title="Show as static image">
+                      <i class="pi pi-image"></i>
+                      Image
+                    </button>
+                  </div>
+                </div>
+              }
 
               <!-- Action Buttons -->
               <div class="action-buttons">
@@ -354,14 +397,94 @@ export interface RendererTab {
                 <!-- Diagram View -->
                 <div class="diagram-view">
                   @if (getActiveRenderer()?.name === 'plantuml') {
-                    @if (getCurrentContent()) {
-                      <iframe 
-                        [src]="getPlantUmlUrl()"
-                        class="diagram-frame"
-                        frameborder="0"
-                        title="PlantUML Diagram">
-                      </iframe>
+                    @if (getActiveRenderer()?.isRendering) {
+                      <div class="rendering-placeholder">
+                        <i class="pi pi-spin pi-spinner"></i>
+                        <p>Rendering PlantUML diagram...</p>
+                        <small>Connecting to {{ getPlantUMLServerInfo() }}...</small>
+                      </div>
+                    } @else if (getActiveRenderer()?.plantUMLDiagram?.success) {
+                      <!-- Successful PlantUML Rendering with multiple display options -->
+                      <div class="plantuml-diagram-container">
+                        <!-- Primary display: Iframe for SVG -->
+                        @if (getActiveRenderer()!.plantUMLDiagram!.format === 'svg') {
+                          <iframe
+                            [src]="getActiveRenderer()!.plantUMLDiagram!.safeUrl"
+                            class="plantuml-iframe"
+                            frameborder="0"
+                            title="PlantUML Diagram">
+                          </iframe>
+                        } @else {
+                          <!-- Display mode toggle for non-SVG formats -->
+                          @if (getActiveRenderer()!.plantUMLDisplayMode === 'iframe' || !getActiveRenderer()!.plantUMLDisplayMode) {
+                            <!-- Iframe display (default) - optimized for SVG -->
+                            <iframe
+                              [src]="getActiveRenderer()!.plantUMLDiagram!.safeUrl"
+                              class="plantuml-iframe"
+                              frameborder="0"
+                              title="PlantUML Diagram (Interactive)">
+                            </iframe>
+                            <div class="display-mode-info">
+                              <small><i class="pi pi-window-maximize"></i> Interactive iframe ({{ getActiveRenderer()!.plantUMLDiagram!.format.toUpperCase() }})</small>
+                            </div>
+                          } @else {
+                            <!-- Image display - optimized for PNG -->
+                            <img
+                              [src]="getActiveRenderer()!.plantUMLDiagram!.safeImageUrl"
+                              class="plantuml-image"
+                              alt="PlantUML Diagram"
+                              (load)="onDiagramImageLoad()"
+                              (error)="onDiagramImageError($event)">
+                            <div class="display-mode-info">
+                              <small><i class="pi pi-image"></i> Static image ({{ getActiveRenderer()!.plantUMLDiagram!.format.toUpperCase() }})</small>
+                            </div>
+                          }
+                        }
+
+                        <!-- Diagram info overlay -->
+                        <div class="diagram-info">
+                          <small>
+                            {{ getActiveRenderer()!.plantUMLDiagram!.format.toUpperCase() }} •
+                            {{ getActiveRenderer()!.plantUMLDisplayMode || 'iframe' }} •
+                            {{ getActiveRenderer()!.plantUMLDiagram!.timestamp | date:'short' }}
+                          </small>
+                        </div>
+                      </div>
+                    } @else if (getActiveRenderer()?.plantUMLDiagram?.error) {
+                      <!-- Error display with retry option -->
+                      <div class="error-placeholder">
+                        <i class="pi pi-exclamation-triangle"></i>
+                        <p>PlantUML Rendering Failed</p>
+                        <small>{{ getActiveRenderer()!.plantUMLDiagram!.error }}</small>
+                        <div class="error-actions">
+                          <button
+                            class="p-button p-button-text"
+                            (click)="renderPlantUMLDiagram()">
+                            <i class="pi pi-refresh"></i>
+                            Retry
+                          </button>
+                          <button
+                            class="p-button p-button-text"
+                            (click)="checkPlantUMLServer()">
+                            <i class="pi pi-server"></i>
+                            Check Server
+                          </button>
+                        </div>
+                      </div>
+                    } @else if (getCurrentContent()) {
+                      <!-- Ready to render -->
+                      <div class="ready-to-render-placeholder">
+                        <i class="pi pi-play-circle"></i>
+                        <p>Ready to render PlantUML diagram</p>
+                        <button
+                          class="p-button p-button-outlined"
+                          (click)="renderPlantUMLDiagram()">
+                          <i class="pi pi-image"></i>
+                          Render Diagram
+                        </button>
+                      </div>
                     } @else {
+                      <!-- No content available -->
                       <div class="no-content-placeholder">
                         <i class="pi pi-info-circle"></i>
                         <p>No PlantUML code available</p>
@@ -405,7 +528,7 @@ export interface RendererTab {
               @if (getCurrentOutput()?.metadata) {
                 <div class="metadata-info">
                   <small class="metadata-text">
-                    Rendered by {{ getCurrentOutput()!.rendererName }} 
+                    Rendered by {{ getCurrentOutput()!.rendererName }}
                     in {{ getCurrentOutput()!.metadata.renderingTime }}ms
                     | {{ getCurrentOutput()!.metadata.elementCount }} elements
                     @if (getCurrentOutput()!.metadata.warnings?.length) {
@@ -760,6 +883,55 @@ export interface RendererTab {
       font-size: 0.875rem;
     }
 
+    .display-mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .display-mode-toggle label {
+      font-size: 0.875rem;
+      color: var(--p-text-color);
+      font-weight: 500;
+    }
+
+    .toggle-group {
+      display: flex;
+      background: var(--p-surface-0);
+      border-radius: 6px;
+      padding: 0.25rem;
+      border: 1px solid var(--p-surface-border);
+    }
+
+    .toggle-option {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.375rem 0.75rem;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--p-text-muted-color);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-option:hover {
+      background: var(--p-surface-100);
+      color: var(--p-text-color);
+    }
+
+    .toggle-option.active {
+      background: var(--p-primary-color);
+      color: var(--p-primary-contrast-color);
+    }
+
+    .toggle-option i {
+      font-size: 1rem;
+    }
+
     .action-buttons {
       display: flex;
       gap: 0.5rem;
@@ -837,28 +1009,127 @@ export interface RendererTab {
     }
 
     .graph-placeholder,
-    .no-content-placeholder {
+    .no-content-placeholder,
+    .rendering-placeholder,
+    .error-placeholder,
+    .ready-to-render-placeholder {
       text-align: center;
       color: var(--p-text-muted-color);
       padding: 2rem;
     }
 
     .graph-placeholder i,
-    .no-content-placeholder i {
+    .no-content-placeholder i,
+    .rendering-placeholder i,
+    .error-placeholder i,
+    .ready-to-render-placeholder i {
       font-size: 3rem;
       margin-bottom: 1rem;
       opacity: 0.5;
     }
 
-    .no-content-placeholder p {
+    .no-content-placeholder p,
+    .rendering-placeholder p,
+    .error-placeholder p,
+    .ready-to-render-placeholder p {
       margin: 0.5rem 0;
       color: var(--p-text-color);
       font-weight: 500;
     }
 
-    .no-content-placeholder small {
+    .no-content-placeholder small,
+    .rendering-placeholder small,
+    .error-placeholder small {
       color: var(--p-text-muted-color);
       font-size: 0.8rem;
+      display: block;
+      margin-top: 0.5rem;
+    }
+
+    .rendering-placeholder .p-button,
+    .error-placeholder .p-button,
+    .ready-to-render-placeholder .p-button {
+      margin-top: 1rem;
+      color: var(--p-primary-color);
+    }
+
+    .error-placeholder {
+      background: var(--p-red-50);
+      border: 1px solid var(--p-red-200);
+      border-radius: 6px;
+    }
+
+    .error-placeholder i {
+      color: var(--p-red-500);
+    }
+
+    .error-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+
+    .ready-to-render-placeholder {
+      background: var(--p-blue-50);
+      border: 1px solid var(--p-blue-200);
+      border-radius: 6px;
+    }
+
+    .ready-to-render-placeholder i {
+      color: var(--p-blue-500);
+    }
+
+    /* PlantUML specific styles */
+    .plantuml-diagram-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .plantuml-iframe {
+      flex: 1;
+      border: none;
+      background: var(--p-surface-0);
+      min-height: 400px;
+    }
+
+    .plantuml-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      background: var(--p-surface-0);
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .display-mode-info {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      z-index: 10;
+    }
+
+    .display-mode-info i {
+      margin-right: 0.25rem;
+    }
+
+    .diagram-info {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.5rem;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
     }
 
     .text-diagram {
@@ -887,6 +1158,26 @@ export interface RendererTab {
     .metadata-text {
       color: var(--p-text-muted-color);
       font-size: 0.75rem;
+    }
+
+    .debug-info {
+      padding: 0.5rem;
+      background: var(--p-yellow-50);
+      border: 1px solid var(--p-yellow-200);
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+
+    .debug-info small {
+      color: var(--p-yellow-800);
+      font-size: 0.7rem;
+    }
+
+    .no-data {
+      color: var(--p-text-muted-color);
+      font-style: italic;
+      font-size: 0.75rem;
+      margin: 0.5rem 0;
     }
 
     @media (max-width: 1024px) {
@@ -938,13 +1229,17 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   isLoading = signal<boolean>(false);
   renderError = signal<string>('');
   modelAnalysis = signal<any>(null);
-  
+
   // New structure
   rendererTabs = signal<RendererTab[]>([]);
   activeRendererTab = signal<string>('');
 
+  // Debouncing for code editing
+  private codeEditTimeout: any = null;
+
   constructor(
     private diagramService: DiagramService,
+    private plantUMLService: PlantUMLService,
     private sanitizer: DomSanitizer
   ) {}
 
@@ -952,6 +1247,12 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     this._architectureName.set(this.architectureName);
 
     if (this.architectureContext) {
+      console.log('DiagramViewer: Received architecture context:', this.architectureContext);
+      console.log('DiagramViewer: Applications in architecture:', this.architectureContext?.applicationLayer?.applications);
+      console.log('DiagramViewer: Components in architecture:', this.architectureContext?.applicationLayer?.components);
+      console.log('DiagramViewer: Actors in architecture:', this.architectureContext?.businessLayer?.actors);
+      console.log('DiagramViewer: Relationships in architecture:', this.architectureContext?.relationships);
+
       this._architecture.set(this.architectureContext);
       this.setupRendererTabs();
       this.generateModelAnalysis();
@@ -965,6 +1266,9 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     }
 
     if (changes['architectureContext'] && this.architectureContext) {
+      console.log('DiagramViewer: Architecture context changed:', this.architectureContext);
+      console.log('DiagramViewer: New applications data:', this.architectureContext?.applicationLayer?.applications);
+
       this._architecture.set(this.architectureContext);
       this.setupRendererTabs();
       this.generateModelAnalysis();
@@ -981,13 +1285,14 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
       icon: this.getRendererIcon(renderer.name),
       formats: [...renderer.supportedFormats],
       currentFormat: renderer.supportedFormats[0] || 'dsl',
-      viewMode: 'code',
+      viewMode: 'diagram',
       outputs: new Map(),
-      editableCode: ''
+      editableCode: '',
+      plantUMLDisplayMode: 'iframe' // Default to iframe display
     }));
 
     this.rendererTabs.set(tabs);
-    
+
     if (tabs.length > 0 && !this.activeRendererTab()) {
       this.activeRendererTab.set(tabs[0].id);
     }
@@ -1001,7 +1306,7 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     this.renderError.set('');
 
     const tabs = this.rendererTabs();
-    const renderPromises = tabs.map(tab => 
+    const renderPromises = tabs.map(tab =>
       this.renderTabFormats(tab, architecture)
     );
 
@@ -1011,21 +1316,38 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
   }
 
   private async renderTabFormats(tab: RendererTab, architecture: Architecture) {
+    console.log(`Rendering tab: ${tab.name} with formats:`, tab.formats);
+
     for (const format of tab.formats) {
       try {
+        console.log(`Rendering ${tab.name}-${format}...`);
         const output = await this.diagramService.renderDiagram(
-          architecture, 
-          tab.name, 
+          architecture,
+          tab.name,
           format
         ).toPromise();
 
         if (output) {
+          console.log(`Successfully rendered ${tab.name}-${format}:`, {
+            contentLength: output.content?.length || 0,
+            rendererName: output.rendererName,
+            metadata: output.metadata
+          });
+
           tab.outputs.set(format, output);
-          
+
           // Set editable code for current format
           if (format === tab.currentFormat) {
             tab.editableCode = output.content;
+            console.log(`Set editable code for ${tab.name}-${format}:`, output.content?.substring(0, 100) + '...');
+
+            // If this is a PlantUML tab, render the diagram
+            if (tab.name === 'plantuml') {
+              this.renderPlantUMLForTab(tab);
+            }
           }
+        } else {
+          console.warn(`No output received for ${tab.name}-${format}`);
         }
       } catch (error) {
         console.error(`Failed to render ${tab.name}-${format}:`, error);
@@ -1068,20 +1390,44 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     const target = event.target as HTMLSelectElement;
     const format = target.value;
     const activeTab = this.getActiveRenderer();
-    
+
     if (activeTab) {
       activeTab.currentFormat = format;
       const output = activeTab.outputs.get(format);
       if (output) {
         activeTab.editableCode = output.content;
+
+        // Re-render PlantUML diagram when format changes
+        if (activeTab.name === 'plantuml') {
+          console.log(`Format changed to ${format}, re-rendering PlantUML diagram`);
+          this.renderPlantUMLForTab(activeTab);
+        }
       }
       this.rendererTabs.set([...this.rendererTabs()]); // Trigger update
     }
   }
 
   onCodeEdit() {
-    // Code editing logic can be implemented here
-    // For now, just update the editable code
+    const activeTab = this.getActiveRenderer();
+    if (!activeTab) return;
+
+    console.log(`Code changed in ${activeTab.name}, preparing to re-render`);
+
+    // Debounce the re-rendering to avoid excessive API calls
+    if (this.codeEditTimeout) {
+      clearTimeout(this.codeEditTimeout);
+    }
+
+    this.codeEditTimeout = setTimeout(() => {
+      // Re-render based on the active renderer type
+      if (activeTab.name === 'plantuml') {
+        console.log('Re-rendering PlantUML diagram after code edit');
+        this.renderPlantUMLForTab(activeTab);
+      }
+      // Add other renderer-specific re-rendering logic here if needed
+
+      this.codeEditTimeout = null;
+    }, 1000); // 1-second debounce
   }
 
   getCurrentOutput(): DiagramOutput | null {
@@ -1126,11 +1472,115 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     return 'Unknown';
   }
 
-  getPlantUmlUrl(): SafeResourceUrl | null {
-    const content = this.getCurrentContent();
-    if (!content) return null;
-    const url = `https://www.plantuml.com/plantuml/svg/${encode(content)}`;
-    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  renderPlantUMLDiagram(): void {
+    const activeTab = this.getActiveRenderer();
+    if (activeTab?.name === 'plantuml') {
+      this.renderPlantUMLForTab(activeTab);
+    }
+  }
+
+  checkPlantUMLServer(): void {
+    console.log('Checking PlantUML server availability...');
+    this.plantUMLService.checkServerAvailability().subscribe({
+      next: (available) => {
+        console.log('PlantUML server available:', available);
+        if (available) {
+          this.renderPlantUMLDiagram();
+        }
+      },
+      error: (error) => {
+        console.error('PlantUML server check failed:', error);
+        this.renderError.set(`Server check failed: ${error.message}`);
+      }
+    });
+  }
+
+  getPlantUMLServerInfo(): string {
+    return this.plantUMLService.getServerConfig().url;
+  }
+
+  onDiagramImageLoad(): void {
+    console.log('PlantUML diagram image loaded successfully');
+  }
+
+  onDiagramImageError(event: any): void {
+    console.error('PlantUML diagram image failed to load:', event);
+    const activeTab = this.getActiveRenderer();
+    if (activeTab) {
+      activeTab.plantUMLDiagram = {
+        ...activeTab.plantUMLDiagram!,
+        success: false,
+        error: 'Failed to load diagram image'
+      };
+      this.rendererTabs.set([...this.rendererTabs()]);
+    }
+  }
+
+  private renderPlantUMLForTab(tab: RendererTab): void {
+    const displayMode = tab.plantUMLDisplayMode || 'iframe';
+    this.renderPlantUMLForTabWithMode(tab, displayMode);
+  }
+
+  private renderPlantUMLForTabWithMode(tab: RendererTab, displayMode: 'iframe' | 'image'): void {
+    if (!tab.editableCode) {
+      console.warn('No PlantUML code available for rendering');
+      return;
+    }
+
+    console.log(`Rendering PlantUML diagram for tab: ${tab.name} in ${displayMode} mode`);
+
+    // Set loading state
+    tab.isRendering = true;
+    this.rendererTabs.set([...this.rendererTabs()]);
+
+    // Choose optimal format based on display mode
+    const format = displayMode === 'image' ? 'png' : 'svg';
+    const renderOptions = {
+      format: format as any,
+      timeout: 15000,
+      useCache: false // Always reload when switching modes
+    };
+
+    console.log(`Using format ${format} for ${displayMode} rendering`);
+
+    this.plantUMLService.renderDiagram(tab.editableCode, renderOptions).subscribe({
+      next: (plantUMLDiagram) => {
+        console.log(`PlantUML diagram rendered successfully in ${displayMode} mode:`, {
+          format: plantUMLDiagram.format,
+          success: plantUMLDiagram.success,
+          hasBlob: !!plantUMLDiagram.blob,
+          displayMode: displayMode
+        });
+
+        // Enhance diagram object with display mode info
+        tab.plantUMLDiagram = {
+          ...plantUMLDiagram,
+          displayMode: displayMode
+        } as any;
+
+        tab.isRendering = false;
+        this.rendererTabs.set([...this.rendererTabs()]); // Trigger update
+
+        // Clear any previous errors
+        this.renderError.set('');
+      },
+      error: (error) => {
+        console.error(`Failed to render PlantUML diagram in ${displayMode} mode:`, error);
+        tab.plantUMLDiagram = {
+          code: tab.editableCode,
+          encodedUrl: '',
+          safeUrl: this.sanitizer.bypassSecurityTrustResourceUrl(''),
+          format: format as any,
+          success: false,
+          error: `${displayMode} rendering failed: ${error.message}`,
+          timestamp: new Date(),
+          displayMode: displayMode
+        } as any;
+        tab.isRendering = false;
+        this.rendererTabs.set([...this.rendererTabs()]);
+        this.renderError.set(`Failed to render PlantUML in ${displayMode} mode: ${error.message}`);
+      }
+    });
   }
 
   // Utilities
@@ -1147,4 +1597,34 @@ export class DiagramViewerComponent implements OnInit, OnChanges {
     };
     return icons[rendererName] || 'pi pi-file';
   }
+
+  setPlantUMLDisplayMode(mode: 'iframe' | 'image') {
+    const activeTab = this.getActiveRenderer();
+    if (activeTab?.name === 'plantuml') {
+      const previousMode = activeTab.plantUMLDisplayMode;
+      activeTab.plantUMLDisplayMode = mode;
+
+      console.log(`PlantUML display mode changed from ${previousMode} to: ${mode}`);
+
+      // Clear existing diagram to force reload
+      activeTab.plantUMLDiagram = undefined;
+
+      // Set appropriate format for the display mode
+      const optimizedFormat = mode === 'image' ? 'png' : 'svg';
+      if (activeTab.currentFormat !== optimizedFormat && activeTab.formats.includes(optimizedFormat)) {
+        activeTab.currentFormat = optimizedFormat;
+        const output = activeTab.outputs.get(optimizedFormat);
+        if (output) {
+          activeTab.editableCode = output.content;
+        }
+        console.log(`Format automatically changed to ${optimizedFormat} for ${mode} display`);
+      }
+
+      // Trigger re-render with the new display mode
+      this.renderPlantUMLForTabWithMode(activeTab, mode);
+
+      this.rendererTabs.set([...this.rendererTabs()]); // Trigger update
+    }
+  }
 }
+

@@ -43,12 +43,6 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
               <i class="pi" [class.pi-link]="isConnected()" [class.pi-times-circle]="!isConnected()"></i>
               {{ isConnected() ? 'Connected' : 'Disconnected' }}
             </span>
-            <span class="status-badge"
-                  [class.available]="plantUMLServerAvailable()"
-                  [class.unavailable]="!plantUMLServerAvailable()">
-              <i class="pi" [class.pi-palette]="plantUMLServerAvailable()" [class.pi-exclamation-triangle]="!plantUMLServerAvailable()"></i>
-              PlantUML {{ plantUMLServerAvailable() ? 'Ready' : 'Offline' }}
-            </span>
           </div>
         </div>
 
@@ -176,24 +170,6 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
         <div class="main-content">
           @if (generatedDiagram()) {
             <div class="diagram-section">
-              <div class="diagram-header">
-                <div class="diagram-info">
-                  <h2>{{ selectedArchitecture()?.name || 'Architecture' }} Diagram</h2>
-                  @if (diagramStats()) {
-                    <div class="element-stats">
-                      @if (diagramStats()!.peopleCount) {
-                        <span class="stat"><i class="pi pi-user"></i> {{ diagramStats()!.peopleCount }} People</span>
-                      }
-                      @if (diagramStats()!.systemsCount) {
-                        <span class="stat"><i class="pi pi-server"></i> {{ diagramStats()!.systemsCount }} Systems</span>
-                      }
-                      @if (diagramStats()!.containersCount) {
-                        <span class="stat"><i class="pi pi-objects-column"></i> {{ diagramStats()!.containersCount }} Containers</span>
-                      }
-                    </div>
-                  }
-                </div>
-              </div>
 
               <div class="diagram-content">
                 <app-diagram-viewer
@@ -795,7 +771,7 @@ export class ArchitectureDashboardComponent implements OnInit {
     try {
       // Store architecture context for diagram viewer (now uses Architecture directly)
       this.architectureContext.set(architecture);
-      
+
       // Generate PlantUML using new renderer system
       this.diagramService.renderDiagram(architecture, 'plantuml', 'c4').subscribe({
         next: (output) => {
