@@ -271,7 +271,42 @@ export class AdvancedDiagramRendererService {
         if (container.isDatabase) {
           dsl += ' "Database"';
         }
-        dsl += '\n';
+        dsl += ' {\n';
+
+        // Add components for this container
+        const containerComponents = context.components.filter(comp => 
+          // Simple association: components belong to containers based on naming or first available container
+          systemIndex === 0 || container === systemContainers[0]
+        );
+
+        containerComponents.forEach(component => {
+          const componentId = this.toDslId(component.id);
+          dsl += `                ${componentId} = component "${component.name}"`;
+          if (component.description) {
+            dsl += ` "${component.description}"`;
+          }
+          if (component.technology) {
+            dsl += ` "${component.technology}"`;
+          }
+          dsl += '\n';
+        });
+
+        // Add services as components
+        const containerServices = context.services.filter(service => 
+          systemIndex === 0 || container === systemContainers[0]
+        );
+        
+        containerServices.forEach(service => {
+          const serviceId = this.toDslId(service.id);
+          dsl += `                ${serviceId} = component "${service.name}"`;
+          if (service.description) {
+            dsl += ` "${service.description}"`;
+          }
+          dsl += ' "Service"';
+          dsl += '\n';
+        });
+
+        dsl += '            }\n';
       });
 
       // If no containers for this system, add a placeholder
@@ -282,6 +317,24 @@ export class AdvancedDiagramRendererService {
 
       dsl += '        }\n';
     });
+
+    // Add infrastructure as external systems
+    if (context.infrastructure.length > 0) {
+      dsl += '\n        # Infrastructure\n';
+      context.infrastructure.forEach(infra => {
+        const infraId = this.toDslId(infra.id);
+        dsl += `        ${infraId} = softwareSystem "${infra.name}"`;
+        if (infra.description) {
+          dsl += ` "${infra.description}"`;
+        }
+        dsl += ' {\n';
+        dsl += '            tags "Infrastructure"';
+        if (infra.nodeType) {
+          dsl += `,${infra.nodeType}`;
+        }
+        dsl += '\n        }\n';
+      });
+    }
 
     // Add all relationships - including system-to-system, person-to-system, and container relationships
     dsl += '\n        # Relationships\n';
@@ -335,6 +388,33 @@ export class AdvancedDiagramRendererService {
       }
     }
 
+    // Add component relationships within containers
+    if (context.components.length > 1) {
+      for (let i = 0; i < Math.min(context.components.length - 1, 2); i++) {
+        const sourceId = this.toDslId(context.components[i].id);
+        const targetId = this.toDslId(context.components[i + 1].id);
+        dsl += `        ${sourceId} -> ${targetId} "Calls"\n`;
+      }
+    }
+
+    // Add service relationships
+    if (context.services.length > 0 && context.containers.length > 0) {
+      context.services.slice(0, 1).forEach(service => {
+        const serviceId = this.toDslId(service.id);
+        const containerId = this.toDslId(context.containers[0].id);
+        dsl += `        ${containerId} -> ${serviceId} "Uses service"\n`;
+      });
+    }
+
+    // Add infrastructure relationships
+    if (context.infrastructure.length > 0 && context.containers.length > 0) {
+      context.infrastructure.slice(0, 1).forEach(infra => {
+        const infraId = this.toDslId(infra.id);
+        const containerId = this.toDslId(context.containers[0].id);
+        dsl += `        ${containerId} -> ${infraId} "Deployed on"\n`;
+      });
+    }
+
     dsl += '\n    }\n\n';
 
     // Add views
@@ -354,6 +434,15 @@ export class AdvancedDiagramRendererService {
         dsl += '            include *\n';
         dsl += '            autoLayout\n';
         dsl += '        }\n\n';
+
+        // Component view for the first container
+        if (context.components.length > 0 && context.containers.length > 0) {
+          const mainContainerId = this.toDslId(context.containers[0].id);
+          dsl += `        component ${mainContainerId} "Components" {\n`;
+          dsl += '            include *\n';
+          dsl += '            autoLayout\n';
+          dsl += '        }\n\n';
+        }
       }
     }
 

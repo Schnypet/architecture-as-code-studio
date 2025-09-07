@@ -10,6 +10,14 @@ import {
   TechnologyNode,
   BusinessService,
   ApplicationService,
+  BusinessDomain,
+  BusinessCapability,
+  BusinessProcess,
+  ApplicationInterface,
+  TechnologyService,
+  TechnologyInterface,
+  SystemSoftware,
+  Artifact,
   Relationship
 } from '../../generated/api';
 
@@ -17,10 +25,15 @@ export interface C4Element {
   id: string;
   name: string;
   description: string;
-  type: 'person' | 'system' | 'container' | 'component';
+  type: 'person' | 'system' | 'container' | 'component' | 'service' | 'node' | 'infrastructure';
   technology?: string;
   tags?: string[];
   isDatabase?: boolean;
+  nodeType?: string;
+  serviceLevel?: string;
+  availability?: string;
+  location?: string;
+  capacity?: string;
 }
 
 export interface C4Relationship {
@@ -39,6 +52,8 @@ export interface StructurizrContext {
   systems: C4Element[];
   containers: C4Element[];
   components: C4Element[];
+  services: C4Element[];
+  infrastructure: C4Element[];
   relationships: C4Relationship[];
 }
 
@@ -55,6 +70,8 @@ export class StructurizrMappingService {
       systems: [],
       containers: [],
       components: [],
+      services: [],
+      infrastructure: [],
       relationships: []
     };
   }
@@ -74,11 +91,29 @@ export class StructurizrMappingService {
       console.log('Mapped systems:', context.systems);
     }
 
-    // Map application components to containers
+    // Map application components to containers AND components based on their type
     if (architecture.applicationLayer?.components) {
-      context.containers = this.mapComponentsToContainers(architecture.applicationLayer.components);
+      const mappedComponents = this.mapApplicationComponents(architecture.applicationLayer.components);
+      context.containers = mappedComponents.containers;
+      context.components = mappedComponents.components;
       console.log('Mapped containers:', context.containers.length);
+      console.log('Mapped components:', context.components.length);
     }
+
+    // Map business and application services
+    context.services = [
+      ...this.mapBusinessServices(architecture.businessLayer?.services || []),
+      ...this.mapApplicationServices(architecture.applicationLayer?.services || [])
+    ];
+    console.log('Mapped services:', context.services.length);
+
+    // Map technology layer to infrastructure
+    context.infrastructure = [
+      ...this.mapTechnologyNodes(architecture.technologyLayer?.nodes || []),
+      ...this.mapSystemSoftware(architecture.technologyLayer?.systemSoftware || []),
+      ...this.mapTechnologyServices(architecture.technologyLayer?.services || [])
+    ];
+    console.log('Mapped infrastructure:', context.infrastructure.length);
 
     // Map relationships (including actor-to-system relationships)
     if (architecture.relationships) {
@@ -96,6 +131,8 @@ export class StructurizrMappingService {
       people: context.people.length,
       systems: context.systems.length,
       containers: context.containers.length,
+      services: context.services.length,
+      infrastructure: context.infrastructure.length,
       relationships: context.relationships.length
     });
 
@@ -129,26 +166,50 @@ export class StructurizrMappingService {
       }));
   }
 
-  private mapComponentsToContainers(components: ApplicationComponent[]): C4Element[] {
-    return components
+  private mapApplicationComponents(components: ApplicationComponent[]): { containers: C4Element[], components: C4Element[] } {
+    const containers: C4Element[] = [];
+    const componentElements: C4Element[] = [];
+    
+    components
       .filter(component => component.uid && component.name)
-      .map(component => {
+      .forEach(component => {
         const isDatabase = component.componentType === 'DATABASE';
-        return {
-          id: component.uid!,
-          name: component.name!,
-          description: component.description || '',
-          type: 'container' as const,
-          technology: component.technology || 'Unknown Technology',
-          isDatabase,
-          tags: [
-            ...(component.componentType ? [component.componentType.toLowerCase()] : []),
-            // Add system association tag for proper container-system mapping
-            'container',
-            ...(isDatabase ? ['database'] : [])
-          ]
-        };
+        
+        // Map high-level application components as containers
+        // Map detailed/internal components as components
+        const isContainer = ['BACKEND', 'FRONTEND', 'DATABASE', 'API_GATEWAY'].includes(component.componentType || '');
+        
+        if (isContainer) {
+          containers.push({
+            id: component.uid!,
+            name: component.name!,
+            description: component.description || '',
+            type: 'container' as const,
+            technology: component.technology || 'Unknown Technology',
+            isDatabase,
+            tags: [
+              ...(component.componentType ? [component.componentType.toLowerCase()] : []),
+              'container',
+              ...(isDatabase ? ['database'] : [])
+            ]
+          });
+        } else {
+          // Map as component for finer-grained elements
+          componentElements.push({
+            id: component.uid!,
+            name: component.name!,
+            description: component.description || '',
+            type: 'component' as const,
+            technology: component.technology || 'Unknown Technology',
+            tags: [
+              ...(component.componentType ? [component.componentType.toLowerCase()] : []),
+              'component'
+            ]
+          });
+        }
       });
+    
+    return { containers, components: componentElements };
   }
 
   private mapRelationships(relationships: Relationship[]): C4Relationship[] {
@@ -176,7 +237,9 @@ export class StructurizrMappingService {
   generateC4PlantUML(context: StructurizrContext, viewType: 'system-context' | 'container' | 'component' = 'system-context'): string {
     let plantuml = '@startuml\n';
     plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml\n';
-    plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n\n';
+    plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n';
+    plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml\n';
+    plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml\n\n';
     plantuml += `title ${context.name}\n\n`;
 
     // Add people
@@ -198,6 +261,33 @@ export class StructurizrMappingService {
         } else {
           // Use regular Container for non-database containers
           plantuml += `Container(${this.sanitizeId(container.id)}, "${container.name}", "${container.technology || 'Technology'}", "${container.description}")\n`;
+        }
+      });
+
+      // Add infrastructure elements - als System_Ext für bessere Kompatibilität
+      context.infrastructure.forEach(infra => {
+        if (infra.nodeType === 'SERVER' || infra.nodeType === 'CLOUD') {
+          // Use System_Ext for infrastructure in container view for better compatibility
+          plantuml += `System_Ext(${this.sanitizeId(infra.id)}, "${infra.name}", "${infra.description}")\n`;
+        }
+      });
+    }
+
+    if (viewType === 'component') {
+      // Add actual components
+      context.components.forEach(component => {
+        plantuml += `Component(${this.sanitizeId(component.id)}, "${component.name}", "${component.technology || 'Component'}", "${component.description}")\n`;
+      });
+
+      // Add services as components
+      context.services.forEach(service => {
+        plantuml += `Component(${this.sanitizeId(service.id)}, "${service.name}", "Service", "${service.description}")\n`;
+      });
+
+      // Add infrastructure elements as components
+      context.infrastructure.forEach(infra => {
+        if (infra.nodeType !== 'SERVER' && infra.nodeType !== 'CLOUD') {
+          plantuml += `Component(${this.sanitizeId(infra.id)}, "${infra.name}", "${infra.technology || 'Infrastructure'}", "${infra.description}")\n`;
         }
       });
     }
@@ -235,6 +325,83 @@ export class StructurizrMappingService {
 
   private sanitizeId(id: string): string {
     return id.replace(/[^a-zA-Z0-9]/g, '_');
+  }
+
+  private mapBusinessServices(services: BusinessService[]): C4Element[] {
+    return services
+      .filter(service => service.uid && service.name)
+      .map(service => ({
+        id: service.uid!,
+        name: service.name!,
+        description: service.description || '',
+        type: 'service' as const,
+        serviceLevel: service.serviceLevel,
+        availability: service.availability,
+        tags: ['business-service']
+      }));
+  }
+
+  private mapApplicationServices(services: ApplicationService[]): C4Element[] {
+    return services
+      .filter(service => service.uid && service.name)
+      .map(service => ({
+        id: service.uid!,
+        name: service.name!,
+        description: service.description || '',
+        type: 'service' as const,
+        tags: ['application-service']
+      }));
+  }
+
+  private mapTechnologyNodes(nodes: TechnologyNode[]): C4Element[] {
+    return nodes
+      .filter(node => node.uid && node.name)
+      .map(node => ({
+        id: node.uid!,
+        name: node.name!,
+        description: node.description || '',
+        type: 'infrastructure' as const,
+        nodeType: node.nodeType,
+        location: node.location,
+        capacity: node.capacity,
+        technology: node.operatingSystem,
+        tags: [
+          'technology-node',
+          ...(node.nodeType ? [node.nodeType.toLowerCase()] : [])
+        ]
+      }));
+  }
+
+  private mapSystemSoftware(systemSoftware: SystemSoftware[]): C4Element[] {
+    return systemSoftware
+      .filter(software => software.uid && software.name)
+      .map(software => ({
+        id: software.uid!,
+        name: software.name!,
+        description: software.description || '',
+        type: 'infrastructure' as const,
+        technology: `${software.vendor || 'Unknown'} ${software.version || ''}`.trim(),
+        tags: [
+          'system-software',
+          ...(software.softwareType ? [software.softwareType.toLowerCase()] : [])
+        ]
+      }));
+  }
+
+  private mapTechnologyServices(services: TechnologyService[]): C4Element[] {
+    return services
+      .filter(service => service.uid && service.name)
+      .map(service => ({
+        id: service.uid!,
+        name: service.name!,
+        description: service.description || '',
+        type: 'service' as const,
+        technology: service.provider,
+        tags: [
+          'technology-service',
+          ...(service.serviceCategory ? [service.serviceCategory.toLowerCase()] : [])
+        ]
+      }));
   }
 
   private inferActorSystemRelationships(context: StructurizrContext): C4Relationship[] {

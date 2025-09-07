@@ -38,21 +38,21 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
           <i class="pi pi-objects-column"></i>
           <h1>Architecture as Code Studio</h1>
           <div class="status-badges">
-            <span class="status-badge" 
-                  [class.connected]="isConnected()" 
+            <span class="status-badge"
+                  [class.connected]="isConnected()"
                   [class.disconnected]="!isConnected()">
               <i class="pi" [class.pi-link]="isConnected()" [class.pi-times-circle]="!isConnected()"></i>
               {{ isConnected() ? 'Connected' : 'Disconnected' }}
             </span>
             <span class="status-badge"
-                  [class.available]="plantUMLServerAvailable()" 
+                  [class.available]="plantUMLServerAvailable()"
                   [class.unavailable]="!plantUMLServerAvailable()">
               <i class="pi" [class.pi-palette]="plantUMLServerAvailable()" [class.pi-exclamation-triangle]="!plantUMLServerAvailable()"></i>
               PlantUML {{ plantUMLServerAvailable() ? 'Ready' : 'Offline' }}
             </span>
           </div>
         </div>
-        
+
         <div class="action-section">
           <p-button
             icon="pi pi-bolt"
@@ -93,7 +93,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
               <h3>Architectures</h3>
               <span class="count">{{ architectures().length }}</span>
             </div>
-            
+
             <div class="architecture-list">
               @if (isLoading()) {
                 <div class="loading-placeholder">
@@ -107,7 +107,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                 </div>
               } @else {
                 @for (arch of architectures(); track arch.uid) {
-                  <div class="architecture-item" 
+                  <div class="architecture-item"
                        [class.selected]="selectedArchitecture()?.uid === arch.uid"
                        (click)="selectArchitecture(arch)">
                     <div class="arch-info">
@@ -133,23 +133,14 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
               <div class="section-header">
                 <i class="pi pi-chart-pie"></i>
                 <h3>Analysis</h3>
-                @if (analysisData()) {
-                  <p-button
-                    icon="pi pi-diagram-tree"
-                    size="small"
-                    (click)="generateDiagram()"
-                    [loading]="isGeneratingDiagram()"
-                    [title]="'Generate Diagram'">
-                  </p-button>
-                }
               </div>
-              
+
               <div class="selected-arch">
                 <h4>{{ selectedArchitecture()!.name }}</h4>
                 @if (selectedArchitecture()!.description) {
                   <p class="description">{{ selectedArchitecture()!.description }}</p>
                 }
-                
+
                 @if (analysisData()) {
                   <div class="analysis-stats">
                     <div class="stat-group">
@@ -159,7 +150,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                         <span>{{ analysisData()!.businessLayer.serviceCount }} Services</span>
                       </div>
                     </div>
-                    
+
                     <div class="stat-group">
                       <h5>Application</h5>
                       <div class="stats">
@@ -167,7 +158,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                         <span>{{ analysisData()!.applicationLayer.componentCount }} Components</span>
                       </div>
                     </div>
-                    
+
                     <div class="stat-group">
                       <h5>Technology</h5>
                       <div class="stats">
@@ -204,7 +195,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                   }
                 </div>
               </div>
-              
+
               <div class="diagram-content">
                 <app-diagram-viewer
                   [plantUMLCode]="generatedDiagram()"
@@ -219,16 +210,16 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                 <i class="pi pi-palette"></i>
                 <h2>Architecture Visualization Studio</h2>
                 <p>Select an architecture from the sidebar to generate and visualize C4 diagrams</p>
-                
+
                 @if (connectionMessage()) {
-                  <div class="connection-status" 
-                       [class.success]="isConnected()" 
+                  <div class="connection-status"
+                       [class.success]="isConnected()"
                        [class.error]="!isConnected()">
                     <i class="pi" [class.pi-check-circle]="isConnected()" [class.pi-exclamation-circle]="!isConnected()"></i>
                     {{ connectionMessage() }}
                   </div>
                 }
-                
+
                 <div class="quick-actions">
                   @if (!isConnected()) {
                     <p-button
@@ -608,7 +599,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
       .sidebar {
         width: 300px;
       }
-      
+
       .status-badges {
         display: none;
       }
@@ -798,6 +789,7 @@ export class ArchitectureDashboardComponent implements OnInit {
         const analysis = this.mappingService.analyzeArchitectureData(completeArch);
         this.analysisData.set(analysis);
         this.selectedArchitecture.set(completeArch);
+        await this.generateDiagram();
       }
     } catch (error) {
       console.error('Error analyzing architecture:', error);
