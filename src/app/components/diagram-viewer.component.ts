@@ -1,6 +1,8 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { FormsModule } from '@angular/forms';
+import { encode } from 'plantuml-encoder';
 
 // PrimeNG components
 import { CardModule } from 'primeng/card';
@@ -9,16 +11,31 @@ import { ProgressBarModule } from 'primeng/progressbar';
 import { MessageModule } from 'primeng/message';
 import { TabsModule } from 'primeng/tabs';
 import { SkeletonModule } from 'primeng/skeleton';
+// Using standard HTML textarea instead
 
-import { DiagramRenderingService, RenderedDiagram } from '../services/diagram-rendering.service';
-import { AdvancedDiagramRendererService } from '../services/advanced-diagram-renderer.service';
-import { StructurizrMappingService, StructurizrContext } from '../services/structurizr-mapping.service';
+import { DiagramService, DiagramTab } from '../services/diagram.service';
+import { ArchitectureModel } from '../models/architecture.model';
+import { DiagramOutput } from '../renderers/base-renderer.interface';
+import type { Architecture } from '../../generated/api';
+
+export interface RendererTab {
+  id: string;
+  name: string;
+  label: string;
+  icon: string;
+  formats: string[];
+  currentFormat: string;
+  viewMode: 'code' | 'diagram'; // Toggle zwischen Code und Diagramm
+  outputs: Map<string, DiagramOutput>; // Format -> DiagramOutput
+  editableCode: string;
+}
 
 @Component({
   selector: 'app-diagram-viewer',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     CardModule,
     ButtonModule,
     ProgressBarModule,
@@ -27,231 +44,629 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
     SkeletonModule
   ],
   template: `
-    <div class="diagram-viewer-compact">
-      <!-- Floating Action Toolbar -->
-      <div class="floating-toolbar">
-        <div class="view-selector">
-          <button 
-            *ngFor="let tab of tabs; trackBy: trackTab" 
-            class="tab-button"
-            [class.active]="activeTab() === tab.value"
-            (click)="onTabChange(tab.value)"
-            [title]="tab.tooltip">
-            <i [class]="tab.icon"></i>
-            <span class="tab-label">{{ tab.label }}</span>
-          </button>
+    <div class="diagram-viewer-redesigned">
+      <!-- Left Panel: Architecture Model -->
+      <div class="left-panel">
+        <div class="panel-header">
+          <h3><i class="pi pi-sitemap"></i> Architecture Model</h3>
+          <small>{{ _architectureName() }}</small>
         </div>
-        
-        <!-- Action buttons for current view -->
-        <div class="action-buttons">
-          @if (activeTab() === 'diagram') {
-            @if (renderedDiagram() && renderedDiagram()!.success) {
-              <p-button
-                icon="pi pi-cloud-download"
-                size="small"
-                severity="secondary"
-                (click)="downloadDiagram('svg')"
-                [title]="'Download SVG'">
-              </p-button>
-              <p-button
-                icon="pi pi-arrow-up-right"
-                size="small"
-                severity="secondary"
-                (click)="openInNewTab()"
-                [title]="'Open in New Tab'">
-              </p-button>
-            }
-            <p-button
-              icon="pi pi-sync"
-              size="small"
-              severity="secondary"
-              (click)="rerender()"
-              [loading]="isLoading()"
-              [title]="'Re-render'">
-            </p-button>
-          } @else if (activeTab() === 'structurizr') {
-            <p-button
-              icon="pi pi-clipboard"
-              size="small"
-              severity="secondary"
-              (click)="copyDSL()"
-              [title]="'Copy DSL'">
-            </p-button>
-            <p-button
-              icon="pi pi-file-export"
-              size="small"
-              severity="secondary"
-              (click)="exportWorkspace()"
-              [loading]="isExporting()"
-              [title]="'Export Workspace'">
-            </p-button>
-          } @else if (activeTab() === 'plantuml') {
-            <p-button
-              icon="pi pi-clipboard"
-              size="small"
-              severity="secondary"
-              (click)="copyPlantUML()"
-              [title]="'Copy Code'">
-            </p-button>
+
+        <!-- Analysis Section - At Top -->
+        @if (modelAnalysis()) {
+          <div class="analysis-section">
+            <h4><i class="pi pi-chart-line"></i> Analysis</h4>
+            <div class="analysis-grid">
+              <div class="analysis-card">
+                <span class="metric-value">{{ modelAnalysis().basic?.totalElements || 0 }}</span>
+                <span class="metric-label">Elements</span>
+              </div>
+              <div class="analysis-card">
+                <span class="metric-value">{{ modelAnalysis().basic?.relationshipCount || 0 }}</span>
+                <span class="metric-label">Relations</span>
+              </div>
+              <div class="analysis-card">
+                <span class="metric-value">{{ rendererTabs().length }}</span>
+                <span class="metric-label">Renderers</span>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Architecture Details -->
+        <div class="model-sections">
+          @if (_architecture()?.businessLayer) {
+            <div class="model-section">
+              <h4><i class="pi pi-users"></i> Business Layer</h4>
+              <div class="section-content">
+                @if (_architecture()!.businessLayer!.actors?.length) {
+                  <div class="subsection">
+                    <strong>Actors ({{ _architecture()!.businessLayer!.actors!.length }})</strong>
+                    <ul>
+                      @for (actor of _architecture()!.businessLayer!.actors!; track actor.uid) {
+                        <li>
+                          <strong>{{ actor.name }}</strong>
+                          <span class="type-badge">{{ actor.actorType }}</span>
+                          @if (actor.description) {
+                            <p>{{ actor.description }}</p>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (_architecture()!.businessLayer!.services?.length) {
+                  <div class="subsection">
+                    <strong>Services ({{ _architecture()!.businessLayer!.services!.length }})</strong>
+                    <ul>
+                      @for (service of _architecture()!.businessLayer!.services!; track service.uid) {
+                        <li>
+                          <strong>{{ service.name }}</strong>
+                          @if (service.description) {
+                            <p>{{ service.description }}</p>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (_architecture()?.applicationLayer) {
+            <div class="model-section">
+              <h4><i class="pi pi-desktop"></i> Application Layer</h4>
+              <div class="section-content">
+                @if (_architecture()!.applicationLayer!.applications?.length) {
+                  <div class="subsection">
+                    <strong>Applications ({{ _architecture()!.applicationLayer!.applications!.length }})</strong>
+                    <ul>
+                      @for (app of _architecture()!.applicationLayer!.applications!; track app.uid) {
+                        <li>
+                          <strong>{{ app.name }}</strong>
+                          @if (app.lifecycle) {
+                            <span class="type-badge">{{ app.lifecycle }}</span>
+                          }
+                          @if (app.description) {
+                            <p>{{ app.description }}</p>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (_architecture()!.applicationLayer!.components?.length) {
+                  <div class="subsection">
+                    <strong>Components ({{ _architecture()!.applicationLayer!.components!.length }})</strong>
+                    <ul>
+                      @for (comp of _architecture()!.applicationLayer!.components!; track comp.uid) {
+                        <li>
+                          <strong>{{ comp.name }}</strong>
+                          @if (comp.componentType) {
+                            <span class="type-badge">{{ comp.componentType }}</span>
+                          }
+                          @if (comp.technology) {
+                            <span class="tech-badge">{{ comp.technology }}</span>
+                          }
+                          @if (comp.description) {
+                            <p>{{ comp.description }}</p>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (_architecture()?.technologyLayer) {
+            <div class="model-section">
+              <h4><i class="pi pi-server"></i> Technology Layer</h4>
+              <div class="section-content">
+                @if (_architecture()!.technologyLayer!.nodes?.length) {
+                  <div class="subsection">
+                    <strong>Nodes ({{ _architecture()!.technologyLayer!.nodes!.length }})</strong>
+                    <ul>
+                      @for (node of _architecture()!.technologyLayer!.nodes!; track node.uid) {
+                        <li>
+                          <strong>{{ node.name }}</strong>
+                          @if (node.nodeType) {
+                            <span class="type-badge">{{ node.nodeType }}</span>
+                          }
+                          @if (node.operatingSystem) {
+                            <span class="tech-badge">{{ node.operatingSystem }}</span>
+                          }
+                          @if (node.description) {
+                            <p>{{ node.description }}</p>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (_architecture()!.technologyLayer!.systemSoftware?.length) {
+                  <div class="subsection">
+                    <strong>Software ({{ _architecture()!.technologyLayer!.systemSoftware!.length }})</strong>
+                    <ul>
+                      @for (sw of _architecture()!.technologyLayer!.systemSoftware!; track sw.uid) {
+                        <li>
+                          <strong>{{ sw.name }}</strong>
+                          @if (sw.vendor) {
+                            <span class="vendor-badge">{{ sw.vendor }}</span>
+                          }
+                          @if (sw.version) {
+                            <span class="version-badge">v{{ sw.version }}</span>
+                          }
+                          @if (sw.description) {
+                            <p>{{ sw.description }}</p>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (_architecture()?.relationships?.length) {
+            <div class="model-section">
+              <h4><i class="pi pi-arrow-right-arrow-left"></i> Relationships</h4>
+              <div class="section-content">
+                <div class="subsection">
+                  <strong>Total: {{ _architecture()!.relationships!.length }}</strong>
+                  <div class="relationships-list">
+                    @for (rel of _architecture()!.relationships!; track $index) {
+                      <div class="relationship-item">
+                        <div class="rel-flow">
+                          <span class="rel-source">{{ extractElementName(rel.source) }}</span>
+                          <i class="pi pi-arrow-right"></i>
+                          <span class="rel-target">{{ extractElementName(rel.target) }}</span>
+                        </div>
+                        <div class="rel-details">
+                          @if (rel.relationshipType) {
+                            <span class="rel-type">{{ rel.relationshipType }}</span>
+                          }
+                          @if (rel.description) {
+                            <span class="rel-desc">{{ rel.description }}</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
           }
         </div>
       </div>
 
-      <!-- Main Content Area -->
-      <div class="content-area">
-        @if (activeTab() === 'diagram') {
-          <div class="diagram-content">
-            @if (isLoading()) {
-              <div class="loading-state">
-                <p-skeleton height="100%" borderRadius="8px"></p-skeleton>
-                <div class="loading-text">
-                  <i class="pi pi-spin pi-spinner"></i>
-                  Rendering diagram...
-                </div>
-              </div>
-            } @else if (renderError()) {
-              <div class="error-state">
-                <p-message
-                  severity="warn"
-                  [text]="renderError()">
-                </p-message>
-                <div class="fallback-content">
-                  <pre class="code-preview">{{ _plantUMLCode() }}</pre>
-                  <div class="setup-hint">
-                    <strong>Setup PlantUML:</strong>
-                    <code>docker run -d -p 8080:8080 plantuml/plantuml-server:jetty</code>
-                  </div>
-                </div>
-              </div>
-            } @else if (renderedDiagram() && renderedDiagram()!.success) {
-              <div class="rendered-content">
-                @if (renderedDiagram()!.format === 'html') {
-                  <iframe
-                    [src]="sanitizedUrl()"
-                    class="diagram-frame"
-                    frameborder="0">
-                  </iframe>
-                } @else {
-                  <img
-                    [src]="renderedDiagram()!.url"
-                    [alt]="'Architecture Diagram'"
-                    class="diagram-image"
-                    (error)="onImageError($event)"
-                    (load)="onImageLoad()">
-                }
-              </div>
-            }
-          </div>
-        } @else if (activeTab() === 'structurizr') {
-          <div class="code-content">
-            <pre class="code-display">{{ structurizrDSL() }}</pre>
-          </div>
-        } @else if (activeTab() === 'plantuml') {
-          <div class="code-content">
-            <pre class="code-display">{{ _plantUMLCode() }}</pre>
-          </div>
-        } @else if (activeTab() === 'graph') {
-          <div class="graph-content">
-            @if (graphData()) {
-              <div id="graph-network" class="network-container"></div>
-            } @else {
-              <div class="empty-state">
-                <i class="pi pi-share-alt"></i>
-                <p>No architecture context available for graph view</p>
-              </div>
-            }
-          </div>
-        } @else if (activeTab() === 'structurizr-ui') {
-          <div class="workspace-content">
-            @if (structurizrWorkspace()) {
-              <div class="workspace-overview">
-                <h3>{{ structurizrWorkspace().name }}</h3>
-                <p>{{ structurizrWorkspace().description }}</p>
-                
-                <div class="stats-grid">
-                  <div class="stat">
-                    <span class="count">{{ structurizrWorkspace().model.people.length }}</span>
-                    <span class="label">People</span>
-                  </div>
-                  <div class="stat">
-                    <span class="count">{{ structurizrWorkspace().model.softwareSystems.length }}</span>
-                    <span class="label">Systems</span>
-                  </div>
-                  <div class="stat">
-                    <span class="count">{{ structurizrWorkspace().model.relationships.length }}</span>
-                    <span class="label">Relations</span>
-                  </div>
-                </div>
+      <!-- Right Panel: Renderer Tabs -->
+      <div class="right-panel">
+        <!-- Renderer Tab Navigation -->
+        <div class="renderer-tabs">
+          @for (tab of rendererTabs(); track tab.id) {
+            <button 
+              class="renderer-tab"
+              [class.active]="activeRendererTab() === tab.id"
+              (click)="selectRendererTab(tab.id)"
+              [title]="tab.label">
+              <i [class]="tab.icon"></i>
+              <span>{{ tab.label }}</span>
+            </button>
+          }
+        </div>
 
-                <div class="diagram-types">
-                  @if (structurizrWorkspace().views.systemContextViews.length > 0) {
-                    <div class="diagram-type">
-                      <h4><i class="pi pi-building"></i> System Context Views</h4>
-                      @for (view of structurizrWorkspace().views.systemContextViews; track view.key) {
-                        <div class="view-card">
-                          <strong>{{ view.title }}</strong>
-                          <p>{{ view.description }}</p>
-                        </div>
-                      }
-                    </div>
+        <!-- Active Tab Content -->
+        @if (getActiveRenderer()) {
+          <div class="tab-content">
+            <!-- Tab Controls -->
+            <div class="tab-controls">
+              <!-- View Mode Toggle -->
+              <div class="view-toggle">
+                <button 
+                  class="toggle-btn"
+                  [class.active]="getActiveRenderer()!.viewMode === 'code'"
+                  (click)="setViewMode('code')"
+                  title="Show Code">
+                  <i class="pi pi-file-edit"></i>
+                  Code
+                </button>
+                <button 
+                  class="toggle-btn"
+                  [class.active]="getActiveRenderer()!.viewMode === 'diagram'"
+                  (click)="setViewMode('diagram')"
+                  title="Show Diagram">
+                  <i class="pi pi-eye"></i>
+                  Diagram
+                </button>
+              </div>
+
+              <!-- Format Selector -->
+              <div class="format-selector">
+                <label>Format:</label>
+                <select 
+                  [value]="getActiveRenderer()!.currentFormat"
+                  (change)="onFormatChange($event)">
+                  @for (format of getActiveRenderer()!.formats; track format) {
+                    <option [value]="format">{{ format.toUpperCase() }}</option>
                   }
-                  
-                  @if (structurizrWorkspace().views.containerViews.length > 0) {
-                    <div class="diagram-type">
-                      <h4><i class="pi pi-objects-column"></i> Container Views</h4>
-                      @for (view of structurizrWorkspace().views.containerViews; track view.key) {
-                        <div class="view-card">
-                          <strong>{{ view.title }}</strong>
-                          <p>{{ view.description }}</p>
+                </select>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="action-buttons">
+                <p-button
+                  icon="pi pi-clipboard"
+                  size="small"
+                  severity="secondary"
+                  (click)="copyCurrentContent()"
+                  title="Copy to Clipboard">
+                </p-button>
+                <p-button
+                  icon="pi pi-download"
+                  size="small"
+                  severity="secondary"
+                  (click)="downloadCurrent()"
+                  title="Download">
+                </p-button>
+                <p-button
+                  icon="pi pi-sync"
+                  size="small"
+                  severity="secondary"
+                  (click)="rerenderCurrent()"
+                  [loading]="isLoading()"
+                  title="Re-render">
+                </p-button>
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+              @if (isLoading()) {
+                <div class="loading-state">
+                  <p-skeleton height="100%" borderRadius="8px"></p-skeleton>
+                  <div class="loading-text">
+                    <i class="pi pi-spin pi-spinner"></i>
+                    Rendering {{ getActiveRenderer()?.label }}...
+                  </div>
+                </div>
+              } @else if (renderError()) {
+                <div class="error-state">
+                  <p-message severity="warn" [text]="renderError()"></p-message>
+                </div>
+              } @else if (getActiveRenderer()?.viewMode === 'code') {
+                <!-- Code View -->
+                <div class="code-view">
+                  <textarea
+                    class="code-editor"
+                    [(ngModel)]="getActiveRenderer()!.editableCode"
+                    (ngModelChange)="onCodeEdit()"
+                    placeholder="Generated code will appear here...">
+                  </textarea>
+                </div>
+              } @else if (getActiveRenderer()?.viewMode === 'diagram') {
+                <!-- Diagram View -->
+                <div class="diagram-view">
+                  @if (getActiveRenderer()?.name === 'plantuml') {
+                    @if (getCurrentContent()) {
+                      <iframe 
+                        [src]="getPlantUmlUrl()"
+                        class="diagram-frame"
+                        frameborder="0"
+                        title="PlantUML Diagram">
+                      </iframe>
+                    } @else {
+                      <div class="no-content-placeholder">
+                        <i class="pi pi-info-circle"></i>
+                        <p>No PlantUML code available</p>
+                        <small>Switch to Code view to see the generated content</small>
+                      </div>
+                    }
+                  } @else if (getActiveRenderer()?.name === 'graph') {
+                    @if (getCurrentContent()) {
+                      <div class="graph-container" id="graph-visualization">
+                        <!-- Graph visualization will be rendered here -->
+                        <div class="graph-placeholder">
+                          <i class="pi pi-share-alt"></i>
+                          <p>Interactive graph visualization</p>
+                          <small>Content length: {{ getCurrentContent().length }} chars</small>
                         </div>
-                      }
-                    </div>
+                      </div>
+                    } @else {
+                      <div class="no-content-placeholder">
+                        <i class="pi pi-info-circle"></i>
+                        <p>No graph data available</p>
+                        <small>Switch to Code view to see the generated content</small>
+                      </div>
+                    }
+                  } @else {
+                    @if (getCurrentContent()) {
+                      <div class="text-diagram">
+                        <pre class="diagram-code">{{ getCurrentContent() }}</pre>
+                      </div>
+                    } @else {
+                      <div class="no-content-placeholder">
+                        <i class="pi pi-info-circle"></i>
+                        <p>No diagram content available</p>
+                        <small>Try re-rendering or switch to Code view</small>
+                      </div>
+                    }
                   }
                 </div>
-              </div>
-            } @else {
-              <div class="empty-state">
-                <i class="pi pi-briefcase"></i>
-                <p>No architecture context available for Structurizr workspace</p>
-              </div>
-            }
+              }
+
+              <!-- Metadata -->
+              @if (getCurrentOutput()?.metadata) {
+                <div class="metadata-info">
+                  <small class="metadata-text">
+                    Rendered by {{ getCurrentOutput()!.rendererName }} 
+                    in {{ getCurrentOutput()!.metadata.renderingTime }}ms
+                    | {{ getCurrentOutput()!.metadata.elementCount }} elements
+                    @if (getCurrentOutput()!.metadata.warnings?.length) {
+                      | {{ getCurrentOutput()!.metadata.warnings!.length }} warnings
+                    }
+                  </small>
+                </div>
+              }
+            </div>
           </div>
         }
       </div>
     </div>
   `,
   styles: [`
-    .diagram-viewer-compact {
+    .diagram-viewer-redesigned {
+      display: flex;
+      height: 100%;
+      min-height: 600px;
+      background: var(--p-surface-ground);
+    }
+
+    .left-panel {
+      width: 400px;
+      min-width: 350px;
+      max-width: 500px;
+      background: var(--p-surface-0);
+      border-right: 1px solid var(--p-surface-border);
       display: flex;
       flex-direction: column;
-      height: 100%;
-      min-height: 500px;
+      overflow: hidden;
     }
 
-    .floating-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem;
-      background: var(--p-surface-0);
+    .panel-header {
+      padding: 1rem;
+      background: var(--p-surface-100);
       border-bottom: 1px solid var(--p-surface-border);
-      border-radius: 8px 8px 0 0;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      text-align: center;
     }
 
-    .view-selector {
+    .panel-header h3 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1rem;
+      color: var(--p-text-color);
       display: flex;
-      gap: 0.25rem;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
     }
 
-    .tab-button {
+    .panel-header small {
+      color: var(--p-text-muted-color);
+      font-size: 0.75rem;
+    }
+
+    .analysis-section {
+      padding: 1rem;
+      background: var(--p-surface-50);
+      border-bottom: 1px solid var(--p-surface-border);
+    }
+
+    .analysis-section h4 {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--p-primary-color);
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      background: transparent;
-      border: 1px solid transparent;
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+
+    .analysis-card {
+      text-align: center;
+      padding: 0.75rem;
+      background: var(--p-surface-0);
       border-radius: 6px;
+      border: 1px solid var(--p-surface-border);
+    }
+
+    .metric-value {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--p-primary-color);
+    }
+
+    .metric-label {
+      display: block;
+      font-size: 0.6rem;
+      color: var(--p-text-muted-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 0.25rem;
+    }
+
+    .model-sections {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+
+    .model-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .model-section h4 {
+      margin: 0 0 0.75rem 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--p-primary-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-content {
+      font-size: 0.8rem;
+    }
+
+    .subsection {
+      margin-bottom: 1rem;
+    }
+
+    .subsection strong {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--p-text-color);
+    }
+
+    .subsection ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .subsection li {
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      background: var(--p-surface-0);
+      border-radius: 4px;
+      border-left: 3px solid var(--p-primary-color);
+    }
+
+    .subsection li strong {
+      display: inline;
+      margin: 0;
+      font-size: 0.8rem;
+    }
+
+    .subsection li p {
+      margin: 0.25rem 0 0 0;
+      color: var(--p-text-muted-color);
+      font-size: 0.75rem;
+      line-height: 1.3;
+    }
+
+    .type-badge,
+    .tech-badge,
+    .vendor-badge,
+    .version-badge {
+      display: inline-block;
+      padding: 0.125rem 0.375rem;
+      margin-left: 0.25rem;
+      border-radius: 12px;
+      font-size: 0.6rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .type-badge {
+      background: var(--p-primary-100);
+      color: var(--p-primary-700);
+    }
+
+    .tech-badge {
+      background: var(--p-orange-100);
+      color: var(--p-orange-700);
+    }
+
+    .vendor-badge {
+      background: var(--p-blue-100);
+      color: var(--p-blue-700);
+    }
+
+    .version-badge {
+      background: var(--p-green-100);
+      color: var(--p-green-700);
+    }
+
+    .relationships-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .relationship-item {
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      background: var(--p-surface-0);
+      border-radius: 4px;
+      border-left: 3px solid var(--p-orange-400);
+    }
+
+    .rel-flow {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .rel-source,
+    .rel-target {
+      font-weight: 500;
+      color: var(--p-text-color);
+      font-size: 0.75rem;
+    }
+
+    .rel-details {
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+    }
+
+    .rel-type {
+      background: var(--p-orange-100);
+      color: var(--p-orange-700);
+      padding: 0.125rem 0.375rem;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    .rel-desc {
+      color: var(--p-text-muted-color);
+    }
+
+    .right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .renderer-tabs {
+      display: flex;
+      background: var(--p-surface-0);
+      border-bottom: 1px solid var(--p-surface-border);
+    }
+
+    .renderer-tab {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
       color: var(--p-text-muted-color);
       font-size: 0.875rem;
       font-weight: 500;
@@ -259,37 +674,98 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
       transition: all 0.2s ease;
     }
 
-    .tab-button:hover {
+    .renderer-tab:hover {
       background: var(--p-surface-100);
       color: var(--p-text-color);
     }
 
-    .tab-button.active {
-      background: var(--p-primary-color);
-      color: var(--p-primary-contrast-color);
-      border-color: var(--p-primary-color);
+    .renderer-tab.active {
+      color: var(--p-primary-color);
+      border-bottom-color: var(--p-primary-color);
+      background: var(--p-surface-50);
     }
 
-    .tab-button i {
-      font-size: 1rem;
+    .renderer-tab i {
+      font-size: 1.2rem;
     }
 
-    .action-buttons {
-      display: flex;
-      gap: 0.25rem;
-    }
-
-    .content-area {
+    .tab-content {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
 
-    .diagram-content,
-    .code-content,
-    .graph-content,
-    .workspace-content {
+    .tab-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: var(--p-surface-50);
+      border-bottom: 1px solid var(--p-surface-border);
+      gap: 1rem;
+    }
+
+    .view-toggle {
+      display: flex;
+      background: var(--p-surface-0);
+      border-radius: 6px;
+      padding: 0.25rem;
+      border: 1px solid var(--p-surface-border);
+    }
+
+    .toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--p-text-muted-color);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-btn:hover {
+      background: var(--p-surface-100);
+      color: var(--p-text-color);
+    }
+
+    .toggle-btn.active {
+      background: var(--p-primary-color);
+      color: var(--p-primary-contrast-color);
+    }
+
+    .format-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .format-selector label {
+      font-size: 0.875rem;
+      color: var(--p-text-color);
+      font-weight: 500;
+    }
+
+    .format-selector select {
+      padding: 0.5rem;
+      border: 1px solid var(--p-surface-border);
+      border-radius: 4px;
+      background: var(--p-surface-0);
+      color: var(--p-text-color);
+      font-size: 0.875rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .content-area {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -315,188 +791,137 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
       font-size: 0.875rem;
     }
 
-    .error-state,
-    .fallback-content {
+    .error-state {
       padding: 1rem;
       flex: 1;
-      overflow-y: auto;
     }
 
-    .code-preview,
-    .setup-hint {
-      background: var(--p-surface-100);
-      padding: 1rem;
-      border-radius: 6px;
-      font-family: monospace;
-      font-size: 0.75rem;
-      margin-top: 1rem;
-    }
-
-    .setup-hint code {
-      background: var(--p-surface-200);
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .rendered-content {
+    .code-view {
       flex: 1;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: auto;
+      flex-direction: column;
     }
 
-    .diagram-image {
-      max-width: 100%;
-      max-height: 100%;
-      border-radius: 6px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    .code-editor {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 1rem;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      background: var(--p-surface-900);
+      color: var(--p-surface-0);
+      resize: none;
+    }
+
+    .diagram-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .diagram-frame {
-      width: 100%;
-      height: 100%;
-      border-radius: 6px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    .code-display {
       flex: 1;
-      background: var(--p-surface-900);
-      color: var(--p-surface-0);
-      padding: 1rem;
-      border-radius: 0;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 0.8rem;
-      line-height: 1.5;
-      overflow: auto;
-      white-space: pre;
-      margin: 0;
-    }
-
-    .network-container {
-      width: 100%;
-      flex: 1;
-      min-height: 400px;
-      border-radius: 6px;
+      border: none;
       background: var(--p-surface-0);
     }
 
-    .empty-state {
+    .graph-container {
       flex: 1;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 1rem;
-      color: var(--p-text-muted-color);
-      font-size: 0.875rem;
+      background: var(--p-surface-0);
     }
 
-    .empty-state i {
+    .graph-placeholder,
+    .no-content-placeholder {
+      text-align: center;
+      color: var(--p-text-muted-color);
+      padding: 2rem;
+    }
+
+    .graph-placeholder i,
+    .no-content-placeholder i {
       font-size: 3rem;
+      margin-bottom: 1rem;
       opacity: 0.5;
     }
 
-    .workspace-overview {
-      padding: 1.5rem;
-      overflow-y: auto;
-    }
-
-    .workspace-overview h3 {
-      margin: 0 0 0.5rem 0;
+    .no-content-placeholder p {
+      margin: 0.5rem 0;
       color: var(--p-text-color);
+      font-weight: 500;
     }
 
-    .workspace-overview p {
-      margin: 0 0 1.5rem 0;
+    .no-content-placeholder small {
       color: var(--p-text-muted-color);
-      font-size: 0.875rem;
+      font-size: 0.8rem;
     }
 
-    .stats-grid {
-      display: flex;
-      gap: 1.5rem;
-      margin-bottom: 2rem;
+    .text-diagram {
+      flex: 1;
+      overflow: auto;
     }
 
-    .stat {
-      text-align: center;
+    .diagram-code {
       padding: 1rem;
-      background: var(--p-surface-100);
-      border-radius: 8px;
-      min-width: 80px;
-    }
-
-    .stat .count {
-      display: block;
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--p-primary-color);
-    }
-
-    .stat .label {
-      display: block;
-      font-size: 0.75rem;
-      color: var(--p-text-muted-color);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .diagram-types {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .diagram-type h4 {
-      margin: 0 0 1rem 0;
-      font-size: 1rem;
-      color: var(--p-text-color);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .view-card {
-      background: var(--p-surface-50);
-      padding: 1rem;
-      border-radius: 6px;
-      border-left: 3px solid var(--p-primary-color);
-      margin-bottom: 0.75rem;
-    }
-
-    .view-card strong {
-      display: block;
-      margin-bottom: 0.5rem;
-      color: var(--p-text-color);
-    }
-
-    .view-card p {
       margin: 0;
-      color: var(--p-text-muted-color);
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       font-size: 0.875rem;
+      line-height: 1.5;
+      background: var(--p-surface-900);
+      color: var(--p-surface-0);
+      white-space: pre;
+      overflow: auto;
+    }
+
+    .metadata-info {
+      padding: 1rem;
+      background: var(--p-surface-50);
+      border-top: 1px solid var(--p-surface-border);
+    }
+
+    .metadata-text {
+      color: var(--p-text-muted-color);
+      font-size: 0.75rem;
+    }
+
+    @media (max-width: 1024px) {
+      .left-panel {
+        width: 300px;
+      }
+
+      .analysis-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
     @media (max-width: 768px) {
-      .tab-button .tab-label {
-        display: none;
-      }
-      
-      .stats-grid {
+      .diagram-viewer-redesigned {
         flex-direction: column;
-        gap: 1rem;
       }
-      
-      .floating-toolbar {
+
+      .left-panel {
+        width: 100%;
+        max-height: 40vh;
+        order: 2;
+      }
+
+      .right-panel {
+        order: 1;
+      }
+
+      .tab-controls {
         flex-direction: column;
-        gap: 1rem;
         align-items: stretch;
+        gap: 1rem;
       }
-      
-      .view-selector,
-      .action-buttons {
-        justify-content: center;
+
+      .renderer-tab span {
+        display: none;
       }
     }
   `]
@@ -504,441 +929,222 @@ import { StructurizrMappingService, StructurizrContext } from '../services/struc
 export class DiagramViewerComponent implements OnInit, OnChanges {
   @Input() plantUMLCode: string = '';
   @Input() architectureName: string = 'Architecture';
-  @Input() architectureContext?: StructurizrContext;
+  @Input() architectureContext?: Architecture;
 
   // Public signals for template access
-  _plantUMLCode = signal<string>('');
   _architectureName = signal<string>('Architecture');
+  _architecture = signal<Architecture | null>(null);
 
   isLoading = signal<boolean>(false);
-  isExporting = signal<boolean>(false);
   renderError = signal<string>('');
-  renderedDiagram = signal<RenderedDiagram | null>(null);
-  structurizrDSL = signal<string>('');
-  activeTab = signal<string>('diagram');
-  graphData = signal<any>(null);
-  structurizrWorkspace = signal<any>(null);
-
-  // Tab configuration for compact view
-  tabs = [
-    { 
-      value: 'diagram', 
-      label: 'Diagram', 
-      icon: 'pi pi-palette',
-      tooltip: 'Rendered Architecture Diagram'
-    },
-    { 
-      value: 'structurizr', 
-      label: 'DSL', 
-      icon: 'pi pi-code',
-      tooltip: 'Structurizr DSL Source'
-    },
-    { 
-      value: 'plantuml', 
-      label: 'PlantUML', 
-      icon: 'pi pi-file-edit',
-      tooltip: 'PlantUML C4 Source Code'
-    },
-    { 
-      value: 'graph', 
-      label: 'Graph', 
-      icon: 'pi pi-sitemap',
-      tooltip: 'Interactive Network Graph'
-    },
-    { 
-      value: 'structurizr-ui', 
-      label: 'Workspace', 
-      icon: 'pi pi-briefcase',
-      tooltip: 'Structurizr Workspace Overview'
-    }
-  ];
+  modelAnalysis = signal<any>(null);
+  
+  // New structure
+  rendererTabs = signal<RendererTab[]>([]);
+  activeRendererTab = signal<string>('');
 
   constructor(
-    private diagramService: DiagramRenderingService,
-    private advancedRenderer: AdvancedDiagramRendererService,
-    private structurizrMapping: StructurizrMappingService,
+    private diagramService: DiagramService,
     private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit() {
-    this._plantUMLCode.set(this.plantUMLCode);
     this._architectureName.set(this.architectureName);
 
-    if (this._plantUMLCode()) {
-      this.renderDiagram();
-      this.generateStructurizrDSL();
-    }
-
     if (this.architectureContext) {
-      this.generateStructurizrWorkspace();
-      this.generateGraphData();
+      this._architecture.set(this.architectureContext);
+      this.setupRendererTabs();
+      this.generateModelAnalysis();
+      this.renderAllTabs();
     }
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['plantUMLCode']) {
-      this._plantUMLCode.set(this.plantUMLCode);
-      if (this._plantUMLCode()) {
-        this.renderDiagram();
-        this.generateStructurizrDSL();
-      }
-    }
-
     if (changes['architectureName']) {
       this._architectureName.set(this.architectureName);
     }
 
     if (changes['architectureContext'] && this.architectureContext) {
-      this.generateStructurizrWorkspace();
-      this.generateGraphData();
+      this._architecture.set(this.architectureContext);
+      this.setupRendererTabs();
+      this.generateModelAnalysis();
+      this.renderAllTabs();
     }
   }
 
-  private renderDiagram() {
-    if (!this._plantUMLCode()) return;
+  private setupRendererTabs() {
+    const renderers = this.diagramService.getRendererRegistry().getAllRenderers();
+    const tabs: RendererTab[] = renderers.map(renderer => ({
+      id: renderer.name,
+      name: renderer.name,
+      label: this.capitalize(renderer.name),
+      icon: this.getRendererIcon(renderer.name),
+      formats: [...renderer.supportedFormats],
+      currentFormat: renderer.supportedFormats[0] || 'dsl',
+      viewMode: 'code',
+      outputs: new Map(),
+      editableCode: ''
+    }));
+
+    this.rendererTabs.set(tabs);
+    
+    if (tabs.length > 0 && !this.activeRendererTab()) {
+      this.activeRendererTab.set(tabs[0].id);
+    }
+  }
+
+  private renderAllTabs() {
+    const architecture = this._architecture();
+    if (!architecture) return;
 
     this.isLoading.set(true);
     this.renderError.set('');
-    this.renderedDiagram.set(null);
 
-    this.diagramService.renderDiagramWithFallback(this._plantUMLCode()).subscribe({
-      next: (result) => {
-        this.renderedDiagram.set(result);
-        if (!result.success) {
-          this.renderError.set(result.error || 'Failed to render diagram');
-        }
-        this.isLoading.set(false);
-      },
-      error: (error) => {
-        this.renderError.set(`Rendering error: ${error.message}`);
-        this.isLoading.set(false);
-      }
+    const tabs = this.rendererTabs();
+    const renderPromises = tabs.map(tab => 
+      this.renderTabFormats(tab, architecture)
+    );
+
+    Promise.all(renderPromises).finally(() => {
+      this.isLoading.set(false);
     });
   }
 
-  private generateStructurizrDSL() {
-    // Use advanced DSL generation if architecture context is available
-    if (this.architectureContext) {
-      const dsl = this.advancedRenderer.generateStructurizrDSL(this.architectureContext);
-      this.structurizrDSL.set(dsl);
-    } else if (this._plantUMLCode()) {
-      // Fallback to legacy method
-      const dsl = this.diagramService.generateStructurizrDSL(this._plantUMLCode());
-      this.structurizrDSL.set(dsl);
-    }
-  }
+  private async renderTabFormats(tab: RendererTab, architecture: Architecture) {
+    for (const format of tab.formats) {
+      try {
+        const output = await this.diagramService.renderDiagram(
+          architecture, 
+          tab.name, 
+          format
+        ).toPromise();
 
-  sanitizedUrl(): SafeResourceUrl {
-    const diagram = this.renderedDiagram();
-    if (diagram?.url) {
-      return this.sanitizer.bypassSecurityTrustResourceUrl(diagram.url);
-    }
-    return '';
-  }
-
-  onImageError(event: any) {
-    console.warn('Image failed to load:', event);
-    this.renderError.set('Failed to load diagram image. The PlantUML server might be unavailable.');
-  }
-
-  onImageLoad() {
-    // Diagram image loaded successfully
-  }
-
-  rerender() {
-    this.renderDiagram();
-  }
-
-  downloadDiagram(format: 'svg' | 'png') {
-    if (!this._plantUMLCode()) return;
-
-    this.diagramService.exportDiagram(this._plantUMLCode(), format).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${this._architectureName()}-diagram.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      },
-      error: (error) => {
-        console.error('Download failed:', error);
-        this.renderError.set(`Download failed: ${error.message}`);
-      }
-    });
-  }
-
-  openInNewTab() {
-    const diagram = this.renderedDiagram();
-    if (diagram?.url) {
-      window.open(diagram.url, '_blank');
-    }
-  }
-
-  copyPlantUML() {
-    if (navigator.clipboard && this._plantUMLCode()) {
-      navigator.clipboard.writeText(this._plantUMLCode()).then(() => {
-        // PlantUML code copied to clipboard
-      }).catch((err) => {
-        console.error('Failed to copy PlantUML code:', err);
-      });
-    }
-  }
-
-  copyDSL() {
-    if (navigator.clipboard && this.structurizrDSL()) {
-      navigator.clipboard.writeText(this.structurizrDSL()).then(() => {
-        // Structurizr DSL copied to clipboard
-      }).catch((err) => {
-        console.error('Failed to copy DSL:', err);
-      });
-    }
-  }
-
-  exportWorkspace() {
-    if (!this._plantUMLCode()) return;
-
-    this.isExporting.set(true);
-
-    this.diagramService.createStructurizrWorkspace(
-      this._architectureName(),
-      this._plantUMLCode()
-    ).subscribe({
-      next: (workspace) => {
-        // Structurizr workspace created successfully
-
-        // Download the DSL file
-        const dslBlob = new Blob([this.structurizrDSL()], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(dslBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${this._architectureName()}-workspace.dsl`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
-        this.isExporting.set(false);
-      },
-      error: (error) => {
-        console.error('Workspace export failed:', error);
-        this.isExporting.set(false);
-      }
-    });
-  }
-
-  private generateGraphData() {
-    if (!this.architectureContext) {
-      return;
-    }
-
-    try {
-      const graphData = this.advancedRenderer.generateGraphData(this.architectureContext);
-
-      if (graphData && graphData.nodes && graphData.edges) {
-        this.graphData.set(graphData);
-        // Initialize graph visualization if the graph tab is active
-        if (this.activeTab() === 'graph') {
-          // Graph data tab loaded
-          setTimeout(() => this.initializeGraph(), 200);
-        }
-      }
-    } catch (error) {
-      console.error('Error generating graph data:', error);
-    }
-  }
-
-  private generateStructurizrWorkspace() {
-    if (!this.architectureContext) return;
-
-    this.advancedRenderer.generateStructurizrWorkspace(this.architectureContext).subscribe({
-      next: (workspace) => {
-        this.structurizrWorkspace.set(workspace);
-      },
-      error: (error) => {
-        console.error('Error generating Structurizr workspace:', error);
-      }
-    });
-  }
-
-  private networkInstance: any = null;
-
-  private initializeGraph() {
-    const container = document.getElementById('graph-network');
-    if (!container || !this.graphData()) {
-      return;
-    }
-    // Clear any existing network instance
-    if (this.networkInstance) {
-      this.networkInstance.destroy();
-      this.networkInstance = null;
-    }
-
-    try {
-      // Import vis-network dynamically to avoid SSR issues
-      import('vis-network/standalone').then(({ Network }) => {
-        const options = this.advancedRenderer.getNetworkOptions();
-        const data = this.graphData();
-
-        if (!data || !data.nodes || !data.edges) {
-          return;
-        }
-
-        this.networkInstance = new Network(container, data, options);
-
-        // Add event listeners
-        this.networkInstance.on('click', (params: any) => {
-          if (params.nodes.length > 0) {
-            const nodeId = params.nodes[0];
-            // Find and display node details
-            const nodeData = data.nodes.get(nodeId);
-            if (nodeData) {
-              // Node clicked - could show details in future
-            }
+        if (output) {
+          tab.outputs.set(format, output);
+          
+          // Set editable code for current format
+          if (format === tab.currentFormat) {
+            tab.editableCode = output.content;
           }
-        });
+        }
+      } catch (error) {
+        console.error(`Failed to render ${tab.name}-${format}:`, error);
+        this.renderError.set(`Failed to render ${tab.label}: ${error}`);
+      }
+    }
+  }
 
-        // Fit the network to view after initialization
-        this.networkInstance.once('stabilizationIterationsDone', () => {
-          this.networkInstance.fit();
-        });
+  private generateModelAnalysis() {
+    const architecture = this._architecture();
+    if (!architecture) return;
 
-      }).catch(error => {
-        console.error('Error loading vis-network:', error);
-      });
+    try {
+      const analysis = this.diagramService.analyzeArchitecture(architecture);
+      this.modelAnalysis.set(analysis);
     } catch (error) {
-      console.error('Error initializing graph:', error);
+      console.error('Failed to analyze architecture model:', error);
     }
   }
 
-
-
-  exportStructurizrWorkspace() {
-    if (!this.structurizrWorkspace()) return;
-
-    const workspace = this.structurizrWorkspace();
-    const dataStr = JSON.stringify(workspace, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-
-    const url = window.URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${this._architectureName()}-workspace.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+  // Tab management
+  selectRendererTab(tabId: string) {
+    this.activeRendererTab.set(tabId);
   }
 
+  getActiveRenderer(): RendererTab | null {
+    const activeId = this.activeRendererTab();
+    return this.rendererTabs().find(tab => tab.id === activeId) || null;
+  }
 
-
-  onTabChange(tabValue: string) {
-    this.activeTab.set(tabValue);
-    if (tabValue === 'graph') {
-      this.generateGraphData();
-      // Initialize graph after a short delay to ensure DOM is ready
-      setTimeout(() => this.initializeGraph(), 100);
+  setViewMode(mode: 'code' | 'diagram') {
+    const activeTab = this.getActiveRenderer();
+    if (activeTab) {
+      activeTab.viewMode = mode;
+      this.rendererTabs.set([...this.rendererTabs()]); // Trigger update
     }
   }
 
-  trackTab(index: number, tab: any) {
-    return tab.value;
-  }
-
-  generateFromStructurizr(format: 'plantuml' | 'mermaid' | 'websequence') {
-    if (!this.architectureContext) return;
-
-    const dsl = this.advancedRenderer.generateStructurizrDSL(this.architectureContext);
-
-    switch (format) {
-      case 'plantuml':
-        // Convert Structurizr DSL to PlantUML (simplified)
-        const plantUMLCode = this.convertStructurizrToPlantUML(dsl);
-        this._plantUMLCode.set(plantUMLCode);
-        this.renderDiagram();
-        this.activeTab.set('diagram'); // Switch to diagram tab
-        break;
-      case 'mermaid':
-        // Future: Convert to Mermaid format
-        alert('Mermaid export coming soon! DSL has been copied to clipboard.');
-        navigator.clipboard?.writeText(dsl);
-        break;
-      case 'websequence':
-        // Future: Convert to WebSequence format
-        alert('WebSequence export coming soon! DSL has been copied to clipboard.');
-        navigator.clipboard?.writeText(dsl);
-        break;
+  onFormatChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    const format = target.value;
+    const activeTab = this.getActiveRenderer();
+    
+    if (activeTab) {
+      activeTab.currentFormat = format;
+      const output = activeTab.outputs.get(format);
+      if (output) {
+        activeTab.editableCode = output.content;
+      }
+      this.rendererTabs.set([...this.rendererTabs()]); // Trigger update
     }
   }
 
-  private convertStructurizrToPlantUML(dsl: string): string {
-    // Simple conversion - extract elements from DSL and create PlantUML
-    let plantuml = '@startuml\n';
-    plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml\n';
-    plantuml += '!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n\n';
+  onCodeEdit() {
+    // Code editing logic can be implemented here
+    // For now, just update the editable code
+  }
 
-    // Extract people, systems and relationships from DSL
-    const lines = dsl.split('\n');
-    const elements: {id: string, type: string, name: string, description?: string}[] = [];
-    const relationships: {source: string, target: string, label: string}[] = [];
+  getCurrentOutput(): DiagramOutput | null {
+    const activeTab = this.getActiveRenderer();
+    if (!activeTab) return null;
+    return activeTab.outputs.get(activeTab.currentFormat) || null;
+  }
 
-    lines.forEach(line => {
-      const trimmed = line.trim();
+  getCurrentContent(): string {
+    const activeTab = this.getActiveRenderer();
+    if (!activeTab) return '';
+    return activeTab.editableCode || '';
+  }
 
-      // Match person definitions
-      const personMatch = trimmed.match(/(\w+) = person "([^"]+)"(?: "([^"]+)")?/);
-      if (personMatch) {
-        elements.push({
-          id: personMatch[1],
-          type: 'person',
-          name: personMatch[2],
-          description: personMatch[3]
-        });
-      }
+  // Actions
+  copyCurrentContent() {
+    const content = this.getCurrentContent();
+    this.diagramService.copyToClipboard(content);
+  }
 
-      // Match system definitions
-      const systemMatch = trimmed.match(/(\w+) = softwareSystem "([^"]+)"(?: "([^"]+)")?/);
-      if (systemMatch) {
-        elements.push({
-          id: systemMatch[1],
-          type: 'system',
-          name: systemMatch[2],
-          description: systemMatch[3]
-        });
-      }
+  downloadCurrent() {
+    const activeTab = this.getActiveRenderer();
+    const content = this.getCurrentContent();
+    if (!activeTab || !content) return;
 
-      // Match relationships
-      const relMatch = trimmed.match(/(\w+) -> (\w+) "([^"]+)"/);
-      if (relMatch) {
-        relationships.push({
-          source: relMatch[1],
-          target: relMatch[2],
-          label: relMatch[3]
-        });
-      }
-    });
+    const filename = `${this._architectureName()}-${activeTab.name}-${activeTab.currentFormat}.txt`;
+    this.diagramService.exportDiagram(content, activeTab.currentFormat, filename);
+  }
 
-    // Generate PlantUML elements
-    elements.forEach(element => {
-      switch (element.type) {
-        case 'person':
-          plantuml += `Person(${element.id}, "${element.name}", "${element.description || ''}")\n`;
-          break;
-        case 'system':
-          plantuml += `System(${element.id}, "${element.name}", "${element.description || ''}")\n`;
-          break;
-      }
-    });
+  rerenderCurrent() {
+    const activeTab = this.getActiveRenderer();
+    const architecture = this._architecture();
+    if (!activeTab || !architecture) return;
 
-    // Generate PlantUML relationships
-    plantuml += '\n';
-    relationships.forEach(rel => {
-      plantuml += `Rel(${rel.source}, ${rel.target}, "${rel.label}")\n`;
-    });
+    this.renderTabFormats(activeTab, architecture);
+  }
 
-    plantuml += '\n@enduml';
-    return plantuml;
+  extractElementName(source: any): string {
+    if (typeof source === 'string') return source;
+    if (source && source.name) return source.name;
+    if (source && source.uid) return source.uid;
+    return 'Unknown';
+  }
+
+  getPlantUmlUrl(): SafeResourceUrl | null {
+    const content = this.getCurrentContent();
+    if (!content) return null;
+    const url = `https://www.plantuml.com/plantuml/svg/${encode(content)}`;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  }
+
+  // Utilities
+  private capitalize(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  private getRendererIcon(rendererName: string): string {
+    const icons: Record<string, string> = {
+      'plantuml': 'pi pi-sitemap',
+      'graph': 'pi pi-share-alt',
+      'structurizr': 'pi pi-objects-column',
+      'likec4': 'pi pi-diagram-tree'
+    };
+    return icons[rendererName] || 'pi pi-file';
   }
 }

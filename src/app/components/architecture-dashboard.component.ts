@@ -11,9 +11,8 @@ import { MessageModule } from 'primeng/message';
 import { PanelModule } from 'primeng/panel';
 
 import { ArchitectureService } from '../services/architecture.service';
-import { StructurizrMappingService } from '../services/structurizr-mapping.service';
-import { DiagramRenderingService } from '../services/diagram-rendering.service';
-import { Architecture } from '../../generated/api';
+import { DiagramService } from '../services/diagram.service';
+import type { Architecture } from '../../generated/api';
 import { DiagramViewerComponent } from './diagram-viewer.component';
 
 @Component({
@@ -141,29 +140,29 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                   <p class="description">{{ selectedArchitecture()!.description }}</p>
                 }
 
-                @if (analysisData()) {
+                @if (analysisData() && analysisData()?.businessLayer) {
                   <div class="analysis-stats">
                     <div class="stat-group">
                       <h5>Business</h5>
                       <div class="stats">
-                        <span>{{ analysisData()!.businessLayer.actorCount }} Actors</span>
-                        <span>{{ analysisData()!.businessLayer.serviceCount }} Services</span>
+                        <span>{{ analysisData()?.businessLayer?.actorCount || 0 }} Actors</span>
+                        <span>{{ analysisData()?.businessLayer?.serviceCount || 0 }} Services</span>
                       </div>
                     </div>
 
                     <div class="stat-group">
                       <h5>Application</h5>
                       <div class="stats">
-                        <span>{{ analysisData()!.applicationLayer.applicationCount }} Apps</span>
-                        <span>{{ analysisData()!.applicationLayer.componentCount }} Components</span>
+                        <span>{{ analysisData()?.applicationLayer?.applicationCount || 0 }} Apps</span>
+                        <span>{{ analysisData()?.applicationLayer?.componentCount || 0 }} Components</span>
                       </div>
                     </div>
 
                     <div class="stat-group">
                       <h5>Technology</h5>
                       <div class="stats">
-                        <span>{{ analysisData()!.technologyLayer.nodeCount }} Nodes</span>
-                        <span>{{ analysisData()!.technologyLayer.serviceCount }} Services</span>
+                        <span>{{ analysisData()?.technologyLayer?.nodeCount || 0 }} Nodes</span>
+                        <span>{{ analysisData()?.technologyLayer?.serviceCount || 0 }} Services</span>
                       </div>
                     </div>
                   </div>
@@ -200,7 +199,7 @@ import { DiagramViewerComponent } from './diagram-viewer.component';
                 <app-diagram-viewer
                   [plantUMLCode]="generatedDiagram()"
                   [architectureName]="selectedArchitecture()?.name || 'Architecture'"
-                  [architectureContext]="architectureContext()">
+                  [architectureContext]="architectureContext() || undefined">
                 </app-diagram-viewer>
               </div>
             </div>
@@ -646,7 +645,7 @@ export class ArchitectureDashboardComponent implements OnInit {
   analysisData = signal<any>(null);
   generatedDiagram = signal<string>('');
   plantUMLServerAvailable = signal<boolean>(false);
-  architectureContext = signal<any>(null);
+  architectureContext = signal<Architecture | null>(null);
 
   // Computed values - ensure architectures is always an array
   architectures = computed(() => {
@@ -667,8 +666,7 @@ export class ArchitectureDashboardComponent implements OnInit {
 
   constructor(
     private architectureService: ArchitectureService,
-    private mappingService: StructurizrMappingService,
-    private diagramService: DiagramRenderingService
+    private diagramService: DiagramService
   ) {}
 
   ngOnInit() {
@@ -677,20 +675,10 @@ export class ArchitectureDashboardComponent implements OnInit {
   }
 
   async checkPlantUMLServer() {
-    this.diagramService.checkPlantUMLServerAvailability().subscribe({
-      next: (available) => {
-        this.plantUMLServerAvailable.set(available);
-        if (available) {
-          console.log('PlantUML server is available at http://localhost:8080');
-        } else {
-          console.log('PlantUML server not available. Diagrams will show fallback content.');
-        }
-      },
-      error: (error) => {
-        console.warn('Failed to check PlantUML server:', error);
-        this.plantUMLServerAvailable.set(false);
-      }
-    });
+    // PlantUML server check is now handled by individual renderers
+    // For now, assume it's available
+    this.plantUMLServerAvailable.set(true);
+    console.log('PlantUML rendering is now handled by dedicated renderer');
   }
 
   async testConnection() {
@@ -785,8 +773,8 @@ export class ArchitectureDashboardComponent implements OnInit {
       const completeArch = await this.architectureService.getCompleteArchitecture(architecture.uid!).toPromise();
 
       if (completeArch) {
-        // Analyze the architecture data
-        const analysis = this.mappingService.analyzeArchitectureData(completeArch);
+        // Analyze the architecture data with new service
+        const analysis = this.diagramService.analyzeArchitecture(completeArch);
         this.analysisData.set(analysis);
         this.selectedArchitecture.set(completeArch);
         await this.generateDiagram();
@@ -805,12 +793,19 @@ export class ArchitectureDashboardComponent implements OnInit {
     this.isGeneratingDiagram.set(true);
 
     try {
-      // Map architecture to Structurizr and generate PlantUML
-      const context = this.mappingService.mapArchitectureToStructurizr(architecture);
-      this.architectureContext.set(context);  // Store context for diagram viewer
-      const plantUML = this.mappingService.generateC4PlantUML(context, 'component');
-
-      this.generatedDiagram.set(plantUML);
+      // Store architecture context for diagram viewer (now uses Architecture directly)
+      this.architectureContext.set(architecture);
+      
+      // Generate PlantUML using new renderer system
+      this.diagramService.renderDiagram(architecture, 'plantuml', 'c4').subscribe({
+        next: (output) => {
+          this.generatedDiagram.set(output.content);
+        },
+        error: (error) => {
+          console.error('Error generating PlantUML:', error);
+          this.generatedDiagram.set('// Error generating diagram');
+        }
+      });
     } catch (error) {
       console.error('Error generating diagram:', error);
     } finally {
